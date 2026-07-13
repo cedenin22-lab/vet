@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { localDateString } from '../../context/AppContext';
 import type { Appointment, AppointmentStatus } from '../../types';
 import AppointmentForm from './AppointmentForm';
 
@@ -75,7 +76,7 @@ export default function AppointmentsModule() {
     // Previous month days
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const d = new Date(year, month, -i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = localDateString(d);
       const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== 'Cancelada');
       days.push({ date: d, isCurrentMonth: false, appointments: dayAppts });
     }
@@ -83,7 +84,7 @@ export default function AppointmentsModule() {
     // Current month days
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(year, month, i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = localDateString(d);
       const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== 'Cancelada');
       days.push({ date: d, isCurrentMonth: true, appointments: dayAppts });
     }
@@ -92,7 +93,7 @@ export default function AppointmentsModule() {
     const remaining = 42 - days.length;
     for (let i = 1; i <= remaining; i++) {
       const d = new Date(year, month + 1, i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = localDateString(d);
       const dayAppts = appointments.filter(a => a.date === dateStr && a.status !== 'Cancelada');
       days.push({ date: d, isCurrentMonth: false, appointments: dayAppts });
     }
@@ -100,7 +101,7 @@ export default function AppointmentsModule() {
     return days;
   }, [viewDate, appointments]);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateString(new Date());
 
   function handleSave(a: Appointment) {
     if (editing) {
@@ -130,60 +131,18 @@ export default function AppointmentsModule() {
         .sort((a, b) => a.time.localeCompare(b.time))
     : [];
 
+  const showSearchResults = search.trim().length > 0;
+
   return (
     <div className="space-y-5">
-      {/* Quick view: Today's and Upcoming */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Today's appointments */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-slate-700 font-semibold text-sm flex items-center gap-2">
-              <CalendarIcon size={16} className="text-teal-500" />
-              Citas de Hoy
-            </h3>
-            <span className="text-xs text-slate-400">
-              {new Date().toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'short' })}
-            </span>
-          </div>
-          {todayAppointments.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-6">No hay citas programadas para hoy.</p>
-          ) : (
-            <div className="space-y-2">
-              {todayAppointments.map(apt => (
-                <MiniCard key={apt.id} appointment={apt} onEdit={() => { setEditing(apt); setFormOpen(true); }} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Upcoming appointments */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-slate-700 font-semibold text-sm flex items-center gap-2">
-              <Clock size={16} className="text-blue-500" />
-              Próximas Citas
-            </h3>
-          </div>
-          {upcomingAppointments.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-6">No hay citas próximas.</p>
-          ) : (
-            <div className="space-y-2">
-              {upcomingAppointments.map(apt => (
-                <MiniCard key={apt.id} appointment={apt} showDate onEdit={() => { setEditing(apt); setFormOpen(true); }} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Toolbar */}
+      {/* Top search + action bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por cliente, mascota, motivo..."
+            placeholder="Buscar por cliente o mascota..."
             className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
@@ -195,7 +154,80 @@ export default function AppointmentsModule() {
         </button>
       </div>
 
+      {/* Search results panel */}
+      {showSearchResults && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="text-slate-700 font-semibold text-sm mb-3 flex items-center gap-2">
+            <Search size={14} className="text-teal-500" />
+            Resultados para "{search}"
+            <span className="text-slate-400 font-normal text-xs">({filteredAppointments.length} citas)</span>
+          </h3>
+          {filteredAppointments.length === 0 ? (
+            <p className="text-slate-400 text-sm text-center py-4">No se encontraron citas.</p>
+          ) : (
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {filteredAppointments.map(apt => (
+                <DetailCard
+                  key={apt.id}
+                  appointment={apt}
+                  showDate
+                  onEdit={() => { setEditing(apt); setFormOpen(true); }}
+                  onDelete={() => handleDelete(apt.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick view: Today's and Upcoming */}
+      {!showSearchResults && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Today's appointments */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-slate-700 font-semibold text-sm flex items-center gap-2">
+                <CalendarIcon size={16} className="text-teal-500" />
+                Citas de Hoy
+              </h3>
+              <span className="text-xs text-slate-400">
+                {new Date().toLocaleDateString('es-PA', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </span>
+            </div>
+            {todayAppointments.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">No hay citas programadas para hoy.</p>
+            ) : (
+              <div className="space-y-2">
+                {todayAppointments.map(apt => (
+                  <MiniCard key={apt.id} appointment={apt} onEdit={() => { setEditing(apt); setFormOpen(true); }} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Upcoming appointments */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-slate-700 font-semibold text-sm flex items-center gap-2">
+                <Clock size={16} className="text-blue-500" />
+                Próximas Citas
+              </h3>
+            </div>
+            {upcomingAppointments.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">No hay citas próximas.</p>
+            ) : (
+              <div className="space-y-2">
+                {upcomingAppointments.map(apt => (
+                  <MiniCard key={apt.id} appointment={apt} showDate onEdit={() => { setEditing(apt); setFormOpen(true); }} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Calendar and list view */}
+      {!showSearchResults && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Calendar */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
@@ -230,7 +262,7 @@ export default function AppointmentsModule() {
           {/* Calendar grid */}
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((day, i) => {
-              const dateStr = day.date.toISOString().split('T')[0];
+              const dateStr = localDateString(day.date);
               const isToday = dateStr === today;
               const isSelected = dateStr === selectedDate;
 
@@ -325,6 +357,7 @@ export default function AppointmentsModule() {
           )}
         </div>
       </div>
+      )}
 
       {formOpen && (
         <AppointmentForm
@@ -384,10 +417,12 @@ function DetailCard({
   appointment,
   onEdit,
   onDelete,
+  showDate,
 }: {
   appointment: Appointment;
   onEdit: () => void;
   onDelete: () => void;
+  showDate?: boolean;
 }) {
   const { owners, pets } = useApp();
   const owner = owners.find(o => o.id === appointment.ownerId);
@@ -397,11 +432,16 @@ function DetailCard({
   return (
     <div className="p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors group">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status.bg} ${status.color} flex items-center gap-1`}>
             {status.icon}
             {appointment.time.slice(0, 5)}
           </span>
+          {showDate && (
+            <span className="text-slate-400 text-xs">
+              {new Date(appointment.date + 'T12:00:00').toLocaleDateString('es-PA', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          )}
           <span className={`text-xs font-medium ${status.color}`}>{appointment.status}</span>
         </div>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

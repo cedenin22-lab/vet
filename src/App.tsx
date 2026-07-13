@@ -6,6 +6,7 @@ import ClientsModule from './components/clients/ClientsListModule';
 import ServicesList from './components/services/ServicesList';
 import BillingModule from './components/billing/BillingModule';
 import AppointmentsModule from './components/appointments/AppointmentsModule';
+import PharmacyModule from './components/pharmacy/PharmacyModule';
 
 function AppInner() {
   const [view, setView] = useState<ActiveView>('dashboard');
@@ -22,6 +23,8 @@ function AppInner() {
         return <ServicesList />;
       case 'billing':
         return <BillingModule />;
+      case 'pharmacy':
+        return <PharmacyModule />;
     }
   }
 

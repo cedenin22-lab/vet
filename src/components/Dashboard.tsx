@@ -8,8 +8,10 @@ import {
   Calendar,
   PawPrint,
   Users,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { localDateString } from '../context/AppContext';
 import type { ServiceType } from '../types';
 
 function formatCurrency(n: number): string {
@@ -36,6 +38,7 @@ const SERVICE_COLORS: Record<ServiceType, string> = {
   Cirugía: 'bg-red-500',
   Grooming: 'bg-amber-500',
   Tratamiento: 'bg-cyan-500',
+  'Clínica': 'bg-indigo-500',
   Otro: 'bg-slate-400',
 };
 
@@ -47,16 +50,22 @@ export default function Dashboard() {
   const totals = useMemo(() => {
     const cash = weekServices.filter(s => s.paymentMethod === 'Efectivo').reduce((a, s) => a + s.price, 0);
     const yappy = weekServices.filter(s => s.paymentMethod === 'Yappy').reduce((a, s) => a + s.price, 0);
-    return { cash, yappy, total: cash + yappy, count: weekServices.length };
+    const transfer = weekServices.filter(s => s.paymentMethod === 'Transferencia').reduce((a, s) => a + s.price, 0);
+    const total = cash + yappy + transfer;
+    return { cash, yappy, transfer, total, count: weekServices.length };
   }, [weekServices]);
 
   const cashPct = totals.total > 0 ? (totals.cash / totals.total) * 100 : 0;
   const yappyPct = totals.total > 0 ? (totals.yappy / totals.total) * 100 : 0;
+  const transferPct = totals.total > 0 ? (totals.transfer / totals.total) * 100 : 0;
 
   const servicesByType = useMemo(() => {
     const map: Partial<Record<ServiceType, number>> = {};
     weekServices.forEach(s => {
-      map[s.type] = (map[s.type] || 0) + 1;
+      const types = s.types?.length ? s.types : s.type ? [s.type] : ['Consulta'];
+      types.forEach(t => {
+        if (t) map[t] = (map[t] || 0) + 1;
+      });
     });
     return Object.entries(map).sort((a, b) => (b[1] as number) - (a[1] as number)) as [ServiceType, number][];
   }, [weekServices]);
@@ -79,15 +88,9 @@ export default function Dashboard() {
     return days.map((label, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
+      const dateStr = localDateString(d);
       const total = weekServices
-        .filter(s => {
-          const sd = new Date(s.date);
-          return (
-            sd.getFullYear() === d.getFullYear() &&
-            sd.getMonth() === d.getMonth() &&
-            sd.getDate() === d.getDate()
-          );
-        })
+        .filter(s => s.date === dateStr)
         .reduce((a, s) => a + s.price, 0);
       return { label, total };
     });
@@ -109,7 +112,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
           label="Total Semanal"
           value={formatCurrency(totals.total)}
@@ -118,18 +121,25 @@ export default function Dashboard() {
           sub={`${totals.count} servicio${totals.count !== 1 ? 's' : ''}`}
         />
         <KpiCard
-          label="Total Efectivo"
+          label="Efectivo"
           value={formatCurrency(totals.cash)}
           icon={<Banknote size={20} />}
           color="bg-green-500"
           sub={`${cashPct.toFixed(0)}% del total`}
         />
         <KpiCard
-          label="Total Yappy"
+          label="Yappy"
           value={formatCurrency(totals.yappy)}
           icon={<Smartphone size={20} />}
           color="bg-blue-500"
           sub={`${yappyPct.toFixed(0)}% del total`}
+        />
+        <KpiCard
+          label="Transferencia"
+          value={formatCurrency(totals.transfer)}
+          icon={<ArrowLeftRight size={20} />}
+          color="bg-violet-500"
+          sub={`${transferPct.toFixed(0)}% del total`}
         />
         <KpiCard
           label="Pacientes"
@@ -172,39 +182,11 @@ export default function Dashboard() {
             <h3 className="text-slate-700 font-semibold text-sm">Métodos de Pago</h3>
             <Activity size={16} className="text-blue-500" />
           </div>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-600 font-medium flex items-center gap-1.5">
-                  <Banknote size={14} className="text-green-500" /> Efectivo
-                </span>
-                <span className="text-slate-700 font-semibold">{formatCurrency(totals.cash)}</span>
-              </div>
-              <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all duration-700"
-                  style={{ width: `${cashPct}%` }}
-                />
-              </div>
-              <p className="text-right text-slate-400 text-xs mt-0.5">{cashPct.toFixed(0)}%</p>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-slate-600 font-medium flex items-center gap-1.5">
-                  <Smartphone size={14} className="text-blue-500" /> Yappy
-                </span>
-                <span className="text-slate-700 font-semibold">{formatCurrency(totals.yappy)}</span>
-              </div>
-              <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-700"
-                  style={{ width: `${yappyPct}%` }}
-                />
-              </div>
-              <p className="text-right text-slate-400 text-xs mt-0.5">{yappyPct.toFixed(0)}%</p>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100">
+          <div className="space-y-3">
+            <PaymentBar label="Efectivo" value={totals.cash} pct={cashPct} color="bg-green-500" icon={<Banknote size={13} className="text-green-500" />} />
+            <PaymentBar label="Yappy" value={totals.yappy} pct={yappyPct} color="bg-blue-500" icon={<Smartphone size={13} className="text-blue-500" />} />
+            <PaymentBar label="Transferencia" value={totals.transfer} pct={transferPct} color="bg-violet-500" icon={<ArrowLeftRight size={13} className="text-violet-500" />} />
+            <div className="pt-2 border-t border-slate-100">
               <div className="flex justify-between">
                 <span className="text-slate-500 text-sm">Total</span>
                 <span className="text-slate-800 font-bold">{formatCurrency(totals.total)}</span>
@@ -225,7 +207,7 @@ export default function Dashboard() {
             <ul className="space-y-2.5">
               {servicesByType.map(([type, count]) => (
                 <li key={type} className="flex items-center gap-2.5">
-                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${SERVICE_COLORS[type]}`} />
+                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${SERVICE_COLORS[type] ?? 'bg-slate-400'}`} />
                   <span className="text-slate-600 text-sm flex-1">{type}</span>
                   <span className="text-slate-800 font-semibold text-sm">{count}</span>
                 </li>
@@ -251,6 +233,23 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PaymentBar({ label, value, pct, color, icon }: { label: string; value: number; pct: number; color: string; icon: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span className="text-slate-600 font-medium flex items-center gap-1.5">
+          {icon} {label}
+        </span>
+        <span className="text-slate-700 font-semibold">${value.toFixed(2)}</span>
+      </div>
+      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="text-right text-slate-400 text-xs mt-0.5">{pct.toFixed(0)}%</p>
     </div>
   );
 }
@@ -284,6 +283,7 @@ function RecentRow({ service }: { service: import('../types').ServiceRecord }) {
   const { pets, owners } = useApp();
   const pet = pets.find(p => p.id === service.petId);
   const owner = owners.find(o => o.id === service.ownerId);
+  const typeLabel = service.types?.join(', ') || service.type || '–';
 
   return (
     <div className="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">
@@ -294,7 +294,7 @@ function RecentRow({ service }: { service: import('../types').ServiceRecord }) {
         <p className="text-slate-700 text-sm font-medium truncate">
           {pet?.name ?? '–'} <span className="text-slate-400 font-normal">({owner?.name ?? '–'})</span>
         </p>
-        <p className="text-slate-400 text-xs truncate">{service.type} · {new Date(service.date).toLocaleDateString('es-PA')}</p>
+        <p className="text-slate-400 text-xs truncate">{typeLabel} · {new Date(service.date + 'T12:00:00').toLocaleDateString('es-PA')}</p>
       </div>
       <span className="text-slate-700 font-semibold text-sm flex-shrink-0">
         ${service.price.toFixed(2)}

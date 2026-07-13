@@ -3,6 +3,7 @@ import { X, Check } from 'lucide-react';
 import type { ServiceRecord, ServiceType, PaymentMethod } from '../../types';
 import { VACCINES } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { localDateString } from '../../context/AppContext';
 
 interface Props {
   petId: string;
@@ -19,35 +20,61 @@ const SERVICE_TYPES: ServiceType[] = [
   'Cirugía',
   'Grooming',
   'Tratamiento',
+  'Clínica',
   'Otro',
+];
+
+const PAYMENT_METHODS: { value: PaymentMethod; color: string }[] = [
+  { value: 'Efectivo', color: 'bg-green-600 border-green-600' },
+  { value: 'Yappy', color: 'bg-blue-600 border-blue-600' },
+  { value: 'Transferencia', color: 'bg-violet-600 border-violet-600' },
 ];
 
 export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }: Props) {
   const { pets, owners } = useApp();
+
+  const initialTypes: ServiceType[] = initial?.types && initial.types.length > 0
+    ? initial.types
+    : initial?.type
+      ? [initial.type]
+      : ['Consulta'];
+
   const [form, setForm] = useState<ServiceRecord>(
-    initial ?? {
-      id: crypto.randomUUID(),
-      petId,
-      ownerId,
-      date: new Date().toISOString().split('T')[0],
-      type: 'Consulta',
-      vaccines: [],
-      description: '',
-      observations: '',
-      diagnosis: '',
-      treatment: '',
-      price: 0,
-      paymentMethod: 'Efectivo',
-      vet: 'Dr. Cedeño',
-      createdAt: new Date().toISOString(),
-    }
+    initial
+      ? { ...initial, types: initialTypes }
+      : {
+          id: crypto.randomUUID(),
+          petId,
+          ownerId,
+          date: localDateString(),
+          types: ['Consulta'],
+          vaccines: [],
+          description: '',
+          observations: '',
+          diagnosis: '',
+          treatment: '',
+          price: 0,
+          paymentMethod: 'Efectivo',
+          vet: 'Dr. Cedeño',
+          createdAt: new Date().toISOString(),
+        }
   );
 
   const set = <K extends keyof ServiceRecord>(k: K, v: ServiceRecord[K]) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
-  const isVaccination = form.type === 'Vacunación';
-  const isTreatment = form.type === 'Tratamiento';
+  const isVaccination = form.types.includes('Vacunación');
+  const isTreatment = form.types.length === 1 && form.types[0] === 'Tratamiento';
+
+  function toggleType(type: ServiceType) {
+    setForm(prev => {
+      const has = prev.types.includes(type);
+      const next = has ? prev.types.filter(t => t !== type) : [...prev.types, type];
+      const types = next.length === 0 ? [type] : next;
+      const vaccines = types.includes('Vacunación') ? prev.vaccines : [];
+      return { ...prev, types, vaccines };
+    });
+  }
 
   function toggleVaccine(vaccine: string) {
     setForm(prev => {
@@ -56,14 +83,6 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
         : [...prev.vaccines, vaccine];
       return { ...prev, vaccines };
     });
-  }
-
-  function handleServiceTypeChange(type: ServiceType) {
-    setForm(prev => ({
-      ...prev,
-      type,
-      vaccines: type === 'Vacunación' ? prev.vaccines : [],
-    }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -108,30 +127,45 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
-            {/* Type */}
+            {/* Vet */}
             <div>
-              <label className="block text-slate-600 text-sm font-medium mb-1.5">Tipo de Servicio *</label>
-              <select
-                value={form.type}
-                onChange={e => handleServiceTypeChange(e.target.value as ServiceType)}
+              <label className="block text-slate-600 text-sm font-medium mb-1.5">Veterinario</label>
+              <input
+                value={form.vet}
+                onChange={e => set('vet', e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              >
-                {SERVICE_TYPES.map(t => <option key={t}>{t}</option>)}
-              </select>
+              />
             </div>
           </div>
 
-          {/* Vet */}
+          {/* Service types - multi select */}
           <div>
-            <label className="block text-slate-600 text-sm font-medium mb-1.5">Veterinario</label>
-            <input
-              value={form.vet}
-              onChange={e => set('vet', e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+            <label className="block text-slate-600 text-sm font-medium mb-2">
+              Tipo de Servicio * <span className="text-slate-400 font-normal">(selección múltiple)</span>
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {SERVICE_TYPES.map(type => {
+                const selected = form.types.includes(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => toggleType(type)}
+                    className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium border transition-all ${
+                      selected
+                        ? 'bg-teal-600 border-teal-600 text-white'
+                        : 'border-slate-200 text-slate-600 hover:border-teal-300 hover:bg-teal-50'
+                    }`}
+                  >
+                    {selected && <Check size={11} />}
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Vaccination section - only shown when type is Vacunación */}
+          {/* Vaccination section */}
           {isVaccination && (
             <div className="bg-teal-50 rounded-lg p-4 border border-teal-100">
               <div className="flex items-center justify-between mb-3">
@@ -153,9 +187,7 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
                       }`}
                     >
                       <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
-                        isSelected
-                          ? 'bg-white border-white'
-                          : 'border-slate-300'
+                        isSelected ? 'bg-white border-white' : 'border-slate-300'
                       }`}>
                         {isSelected && <Check size={12} className="text-teal-600" />}
                       </div>
@@ -176,14 +208,10 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
             </div>
           )}
 
-          {/* Observations — always shown */}
+          {/* Observations */}
           <div>
             <label className="block text-slate-600 text-sm font-medium mb-1.5">
-              {isVaccination
-                ? 'Observaciones adicionales'
-                : isTreatment
-                  ? 'Detalles del Tratamiento *'
-                  : 'Observaciones / Motivo de consulta'}
+              {isVaccination ? 'Observaciones adicionales' : isTreatment ? 'Detalles del Tratamiento *' : 'Observaciones / Motivo de consulta'}
             </label>
             <textarea
               value={form.observations}
@@ -194,7 +222,7 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
             />
           </div>
 
-          {/* Extended fields — hidden for Tratamiento and Vacunación */}
+          {/* Extended fields */}
           {!isTreatment && !isVaccination && (
             <>
               <div>
@@ -243,17 +271,15 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
               </div>
               <div>
                 <label className="block text-slate-600 text-sm font-medium mb-1.5">Método de Pago *</label>
-                <div className="flex gap-2">
-                  {(['Efectivo', 'Yappy'] as PaymentMethod[]).map(m => (
+                <div className="flex gap-1.5">
+                  {PAYMENT_METHODS.map(({ value: m, color }) => (
                     <button
                       key={m}
                       type="button"
                       onClick={() => set('paymentMethod', m)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
                         form.paymentMethod === m
-                          ? m === 'Efectivo'
-                            ? 'bg-green-600 border-green-600 text-white'
-                            : 'bg-blue-600 border-blue-600 text-white'
+                          ? `${color} text-white`
                           : 'border-slate-200 text-slate-600 hover:border-slate-300'
                       }`}
                     >

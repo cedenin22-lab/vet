@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { Owner, Pet, ServiceRecord, Invoice, WeeklySnapshot, Appointment } from '../types';
+import type { Owner, Pet, ServiceRecord, Invoice, WeeklySnapshot, Appointment, PharmacyItem, PharmacySale } from '../types';
 
 interface AppContextValue {
   owners: Owner[];
@@ -8,6 +8,8 @@ interface AppContextValue {
   invoices: Invoice[];
   weeklySnapshots: WeeklySnapshot[];
   appointments: Appointment[];
+  pharmacyItems: PharmacyItem[];
+  pharmacySales: PharmacySale[];
 
   addOwner: (owner: Owner) => void;
   updateOwner: (owner: Owner) => void;
@@ -23,6 +25,7 @@ interface AppContextValue {
 
   addInvoice: (invoice: Invoice) => void;
   deleteInvoice: (id: string) => void;
+  nextInvoiceNumber: () => string;
 
   addAppointment: (appointment: Appointment) => void;
   updateAppointment: (appointment: Appointment) => void;
@@ -30,8 +33,14 @@ interface AppContextValue {
   getTodayAppointments: () => Appointment[];
   getUpcomingAppointments: (limit?: number) => Appointment[];
 
+  addPharmacyItem: (item: PharmacyItem) => void;
+  updatePharmacyItem: (item: PharmacyItem) => void;
+  deletePharmacyItem: (id: string) => void;
+  addPharmacySale: (sale: PharmacySale) => void;
+  deletePharmacySale: (id: string) => void;
+
   getCurrentWeekServices: () => ServiceRecord[];
-  getWeeklyTotals: () => { cash: number; yappy: number; total: number; count: number };
+  getWeeklyTotals: () => { cash: number; yappy: number; transfer: number; total: number; count: number };
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -62,16 +71,42 @@ function save<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+/** Migrate legacy `type` field to `types[]` */
+function migrateServices(raw: ServiceRecord[]): ServiceRecord[] {
+  return raw.map(s => {
+    if (!s.types || s.types.length === 0) {
+      return { ...s, types: s.type ? [s.type] : ['Consulta'] };
+    }
+    return s;
+  });
+}
+
+/** Returns 'YYYY-MM-DD' in local timezone to avoid UTC offset bugs */
+export function localDateString(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [owners, setOwners] = useState<Owner[]>(() => load('vc_owners', []));
   const [pets, setPets] = useState<Pet[]>(() => load('vc_pets', []));
-  const [services, setServices] = useState<ServiceRecord[]>(() => load('vc_services', []));
+  const [services, setServices] = useState<ServiceRecord[]>(() =>
+    migrateServices(load('vc_services', []))
+  );
   const [invoices, setInvoices] = useState<Invoice[]>(() => load('vc_invoices', []));
   const [weeklySnapshots, setWeeklySnapshots] = useState<WeeklySnapshot[]>(() =>
     load('vc_weekly_snapshots', [])
   );
   const [appointments, setAppointments] = useState<Appointment[]>(() =>
     load('vc_appointments', [])
+  );
+  const [pharmacyItems, setPharmacyItems] = useState<PharmacyItem[]>(() =>
+    load('vc_pharmacy_items', [])
+  );
+  const [pharmacySales, setPharmacySales] = useState<PharmacySale[]>(() =>
+    load('vc_pharmacy_sales', [])
   );
 
   useEffect(() => { save('vc_owners', owners); }, [owners]);
@@ -80,6 +115,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { save('vc_invoices', invoices); }, [invoices]);
   useEffect(() => { save('vc_weekly_snapshots', weeklySnapshots); }, [weeklySnapshots]);
   useEffect(() => { save('vc_appointments', appointments); }, [appointments]);
+  useEffect(() => { save('vc_pharmacy_items', pharmacyItems); }, [pharmacyItems]);
+  useEffect(() => { save('vc_pharmacy_sales', pharmacySales); }, [pharmacySales]);
 
   const addOwner = useCallback((o: Owner) => setOwners(prev => [...prev, o]), []);
   const updateOwner = useCallback((o: Owner) => setOwners(prev => prev.map(x => x.id === o.id ? o : x)), []);
@@ -101,6 +138,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateService = useCallback((s: ServiceRecord) => setServices(prev => prev.map(x => x.id === s.id ? s : x)), []);
   const deleteService = useCallback((id: string) => setServices(prev => prev.filter(x => x.id !== id)), []);
 
+  const nextInvoiceNumber = useCallback((): string => {
+    const existing = invoices.map(inv => {
+      const match = inv.invoiceNumber.match(/(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    });
+    const maxNum = existing.length > 0 ? Math.max(...existing) : 0;
+    const next = Math.min(maxNum + 1, 1500);
+    return `#${String(next).padStart(4, '0')}`;
+  }, [invoices]);
+
   const addInvoice = useCallback((inv: Invoice) => setInvoices(prev => [...prev, inv]), []);
   const deleteInvoice = useCallback((id: string) => setInvoices(prev => prev.filter(x => x.id !== id)), []);
 
@@ -111,14 +158,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setAppointments(prev => prev.filter(x => x.id !== id)), []);
 
   const getTodayAppointments = useCallback((): Appointment[] => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString(new Date());
     return appointments
       .filter(a => a.date === today && a.status !== 'Cancelada')
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [appointments]);
 
   const getUpcomingAppointments = useCallback((limit = 10): Appointment[] => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString(new Date());
     return appointments
       .filter(a => a.date >= today && a.status !== 'Cancelada')
       .sort((a, b) => {
@@ -129,10 +176,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .slice(0, limit);
   }, [appointments]);
 
+  const addPharmacyItem = useCallback((item: PharmacyItem) =>
+    setPharmacyItems(prev => [...prev, item]), []);
+  const updatePharmacyItem = useCallback((item: PharmacyItem) =>
+    setPharmacyItems(prev => prev.map(x => x.id === item.id ? item : x)), []);
+  const deletePharmacyItem = useCallback((id: string) =>
+    setPharmacyItems(prev => prev.filter(x => x.id !== id)), []);
+
+  const addPharmacySale = useCallback((sale: PharmacySale) => {
+    setPharmacySales(prev => [...prev, sale]);
+    setPharmacyItems(prev =>
+      prev.map(item =>
+        item.id === sale.itemId
+          ? { ...item, stock: Math.max(0, item.stock - sale.quantity) }
+          : item
+      )
+    );
+  }, []);
+  const deletePharmacySale = useCallback((id: string) =>
+    setPharmacySales(prev => prev.filter(x => x.id !== id)), []);
+
   const getCurrentWeekServices = useCallback((): ServiceRecord[] => {
     const { start, end } = getWeekBounds(new Date());
     return services.filter(s => {
-      const d = new Date(s.date);
+      const d = new Date(s.date + 'T12:00:00');
       return d >= start && d <= end;
     });
   }, [services]);
@@ -141,17 +208,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const current = getCurrentWeekServices();
     const cash = current.filter(s => s.paymentMethod === 'Efectivo').reduce((a, s) => a + s.price, 0);
     const yappy = current.filter(s => s.paymentMethod === 'Yappy').reduce((a, s) => a + s.price, 0);
-    return { cash, yappy, total: cash + yappy, count: current.length };
+    const transfer = current.filter(s => s.paymentMethod === 'Transferencia').reduce((a, s) => a + s.price, 0);
+    return { cash, yappy, transfer, total: cash + yappy + transfer, count: current.length };
   }, [getCurrentWeekServices]);
 
   const value: AppContextValue = {
     owners, pets, services, invoices, weeklySnapshots, appointments,
+    pharmacyItems, pharmacySales,
     addOwner, updateOwner, deleteOwner,
     addPet, updatePet, deletePet,
     addService, updateService, deleteService,
-    addInvoice, deleteInvoice,
+    addInvoice, deleteInvoice, nextInvoiceNumber,
     addAppointment, updateAppointment, deleteAppointment,
     getTodayAppointments, getUpcomingAppointments,
+    addPharmacyItem, updatePharmacyItem, deletePharmacyItem,
+    addPharmacySale, deletePharmacySale,
     getCurrentWeekServices, getWeeklyTotals,
   };
 

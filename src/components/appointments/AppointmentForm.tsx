@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import type { Appointment, AppointmentStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { localDateString } from '../../context/AppContext';
 
 interface Props {
   initial?: Appointment;
@@ -18,7 +19,7 @@ export default function AppointmentForm({ initial, defaultOwnerId, defaultPetId,
       id: crypto.randomUUID(),
       ownerId: defaultOwnerId ?? '',
       petId: defaultPetId ?? '',
-      date: new Date().toISOString().split('T')[0],
+      date: localDateString(),
       time: '09:00',
       reason: '',
       status: 'Pendiente',

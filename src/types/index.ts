@@ -1,4 +1,4 @@
-export type PaymentMethod = 'Efectivo' | 'Yappy';
+export type PaymentMethod = 'Efectivo' | 'Yappy' | 'Transferencia';
 
 export type ServiceType =
   | 'Consulta'
@@ -7,6 +7,7 @@ export type ServiceType =
   | 'Cirugía'
   | 'Grooming'
   | 'Tratamiento'
+  | 'Clínica'
   | 'Otro';
 
 export type AppointmentStatus = 'Pendiente' | 'Completada' | 'Cancelada';
@@ -52,7 +53,7 @@ export interface ServiceRecord {
   petId: string;
   ownerId: string;
   date: string;
-  type: ServiceType;
+  types: ServiceType[];
   vaccines: string[];
   description: string;
   observations: string;
@@ -62,6 +63,8 @@ export interface ServiceRecord {
   paymentMethod: PaymentMethod;
   vet: string;
   createdAt: string;
+  /** @deprecated use types[] */
+  type?: ServiceType;
 }
 
 export interface InvoiceItem {
@@ -102,6 +105,28 @@ export interface Appointment {
   time: string;
   reason: string;
   status: AppointmentStatus;
+  notes: string;
+  createdAt: string;
+}
+
+export interface PharmacyItem {
+  id: string;
+  name: string;
+  salePrice: number;
+  stock: number;
+  category: 'Medicamento' | 'Accesorio' | 'Alimento' | 'Otro';
+  createdAt: string;
+}
+
+export interface PharmacySale {
+  id: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  paymentMethod: PaymentMethod;
+  date: string;
   notes: string;
   createdAt: string;
 }

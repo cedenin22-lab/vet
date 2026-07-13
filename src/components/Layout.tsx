@@ -8,6 +8,7 @@ import {
   Menu,
   X,
   Stethoscope,
+  Pill,
 } from 'lucide-react';
 
 export type ActiveView =
@@ -15,7 +16,8 @@ export type ActiveView =
   | 'clients'
   | 'services'
   | 'billing'
-  | 'appointments';
+  | 'appointments'
+  | 'pharmacy';
 
 interface NavItem {
   id: ActiveView;
@@ -29,6 +31,7 @@ const navItems: NavItem[] = [
   { id: 'clients', label: 'Clientes y Pacientes', icon: <Users size={20} /> },
   { id: 'services', label: 'Historial Clínico', icon: <FileText size={20} /> },
   { id: 'billing', label: 'Facturación', icon: <Receipt size={20} /> },
+  { id: 'pharmacy', label: 'Farmacia', icon: <Pill size={20} /> },
 ];
 
 interface Props {

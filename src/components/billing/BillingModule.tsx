@@ -8,6 +8,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { localDateString } from '../../context/AppContext';
 import type { Invoice, InvoiceItem } from '../../types';
 import InvoiceView from './InvoiceView';
 
@@ -15,21 +16,16 @@ function newItem(): InvoiceItem {
   return { id: crypto.randomUUID(), description: '', quantity: 1, unitPrice: 0 };
 }
 
-function invoiceNumber(): string {
-  return `INV-${Date.now().toString().slice(-6)}`;
-}
-
 export default function BillingModule() {
-  const { owners, pets, invoices, addInvoice, deleteInvoice } = useApp();
+  const { owners, pets, invoices, addInvoice, deleteInvoice, nextInvoiceNumber } = useApp();
 
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [viewing, setViewing] = useState<Invoice | null>(null);
 
-  // New invoice form state
   const [ownerName, setOwnerName] = useState('');
   const [petName, setPetName] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(localDateString());
   const [items, setItems] = useState<InvoiceItem[]>([newItem()]);
   const [applyTax, setApplyTax] = useState(false);
   const [notes, setNotes] = useState('');
@@ -49,9 +45,7 @@ export default function BillingModule() {
   }
 
   function updateItem(id: string, field: keyof InvoiceItem, value: string | number) {
-    setItems(prev =>
-      prev.map(i => (i.id === id ? { ...i, [field]: value } : i))
-    );
+    setItems(prev => prev.map(i => (i.id === id ? { ...i, [field]: value } : i)));
   }
 
   function removeItem(id: string) {
@@ -64,7 +58,7 @@ export default function BillingModule() {
 
     const invoice: Invoice = {
       id: crypto.randomUUID(),
-      invoiceNumber: invoiceNumber(),
+      invoiceNumber: nextInvoiceNumber(),
       date,
       ownerName,
       petName,
@@ -84,7 +78,7 @@ export default function BillingModule() {
     setCreating(false);
     setOwnerName('');
     setPetName('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(localDateString());
     setItems([newItem()]);
     setApplyTax(false);
     setNotes('');
@@ -139,11 +133,13 @@ export default function BillingModule() {
             <tbody className="divide-y divide-slate-100">
               {filtered.map(inv => (
                 <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-teal-700 font-medium text-xs">{inv.invoiceNumber}</td>
+                  <td className="px-4 py-3 font-mono text-teal-700 font-medium text-xs">
+                    Factura {inv.invoiceNumber}
+                  </td>
                   <td className="px-4 py-3 text-slate-700">{inv.ownerName || '–'}</td>
                   <td className="px-4 py-3 text-slate-500 hidden sm:table-cell">{inv.petName || '–'}</td>
                   <td className="px-4 py-3 text-slate-500 hidden md:table-cell">
-                    {new Date(inv.date).toLocaleDateString('es-PA')}
+                    {new Date(inv.date + 'T12:00:00').toLocaleDateString('es-PA')}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-slate-800">
                     ${inv.total.toFixed(2)}
@@ -172,20 +168,22 @@ export default function BillingModule() {
         </div>
       )}
 
-      {/* Create invoice drawer/modal */}
+      {/* Create invoice modal */}
       {creating && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl shadow-xl max-h-[95vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <FileText size={18} className="text-teal-600" />
-                <h2 className="text-slate-800 font-semibold">Nueva Factura</h2>
+                <div>
+                  <h2 className="text-slate-800 font-semibold">Nueva Factura</h2>
+                  <p className="text-slate-400 text-xs">Próximo número: Factura {nextInvoiceNumber()}</p>
+                </div>
               </div>
               <button onClick={resetForm} className="text-slate-400 hover:text-slate-700 text-sm">Cancelar</button>
             </div>
 
             <form onSubmit={handleCreate} className="p-6 space-y-5 overflow-y-auto">
-              {/* Header info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-slate-600 text-sm font-medium mb-1.5">Fecha</label>
@@ -250,9 +248,7 @@ export default function BillingModule() {
                     <Plus size={13} /> Añadir línea
                   </button>
                 </div>
-
                 <div className="space-y-2">
-                  {/* Header */}
                   <div className="grid grid-cols-12 gap-2 text-xs text-slate-400 font-medium px-1">
                     <span className="col-span-6">Descripción</span>
                     <span className="col-span-2 text-center">Cant.</span>

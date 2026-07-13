@@ -8,12 +8,14 @@ import {
   PawPrint,
   Banknote,
   Smartphone,
+  ArrowLeftRight,
   X,
   CheckSquare,
   Square,
   Check,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { localDateString } from '../../context/AppContext';
 import type { ServiceRecord } from '../../types';
 import ServiceForm from './ServiceForm';
 
@@ -29,6 +31,7 @@ const TYPE_COLORS: Record<string, string> = {
   Cirugía: 'bg-red-100 text-red-700',
   Grooming: 'bg-amber-100 text-amber-700',
   Tratamiento: 'bg-cyan-100 text-cyan-700',
+  'Clínica': 'bg-indigo-100 text-indigo-700',
   Otro: 'bg-slate-100 text-slate-600',
 };
 
@@ -39,6 +42,7 @@ const TYPE_COLORS_PRINT: Record<string, string> = {
   Cirugía: '#ef4444',
   Grooming: '#f59e0b',
   Tratamiento: '#06b6d4',
+  'Clínica': '#6366f1',
   Otro: '#64748b',
 };
 
@@ -228,7 +232,9 @@ function ServiceCard({
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const colorClass = TYPE_COLORS[service.type] ?? 'bg-slate-100 text-slate-600';
+  const types = service.types?.length ? service.types : service.type ? [service.type] : ['Consulta'];
+  const isVaccination = types.includes('Vacunación');
+  const primaryColorClass = TYPE_COLORS[types[0]] ?? 'bg-slate-100 text-slate-600';
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-sm transition-shadow">
@@ -238,11 +244,13 @@ function ServiceCard({
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colorClass}`}>
-              {service.type}
-            </span>
+            {types.map(t => (
+              <span key={t} className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_COLORS[t] ?? 'bg-slate-100 text-slate-600'}`}>
+                {t}
+              </span>
+            ))}
             <span className="text-slate-500 text-xs">
-              {new Date(service.date).toLocaleDateString('es-PA', {
+              {new Date(service.date + 'T12:00:00').toLocaleDateString('es-PA', {
                 day: '2-digit', month: 'short', year: 'numeric',
               })}
             </span>
@@ -256,7 +264,7 @@ function ServiceCard({
           {service.description && !service.observations && (
             <p className="text-slate-600 text-sm mt-1 truncate">{service.description}</p>
           )}
-          {service.type === 'Vacunación' && service.vaccines && service.vaccines.length > 0 && (
+          {isVaccination && service.vaccines && service.vaccines.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {service.vaccines.map(v => (
                 <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-600 text-white text-xs font-medium">
@@ -271,7 +279,9 @@ function ServiceCard({
           <span className="print:hidden">
             {service.paymentMethod === 'Efectivo'
               ? <Banknote size={15} className="text-green-500" />
-              : <Smartphone size={15} className="text-blue-500" />}
+              : service.paymentMethod === 'Yappy'
+                ? <Smartphone size={15} className="text-blue-500" />
+                : <ArrowLeftRight size={15} className="text-violet-500" />}
           </span>
           <div className="print:hidden flex gap-1">
             <button
@@ -292,7 +302,7 @@ function ServiceCard({
 
       {expanded && (
         <div className="px-4 pb-4 pt-0 border-t border-slate-100 space-y-2 text-sm">
-          {service.type === 'Vacunación' && service.vaccines && service.vaccines.length > 0 && (
+          {isVaccination && service.vaccines && service.vaccines.length > 0 && (
             <div>
               <span className="text-slate-400 text-xs font-medium uppercase tracking-wide">Vacunas aplicadas: </span>
               <span className="text-teal-700 font-medium">{service.vaccines.join(', ')}</span>
@@ -393,7 +403,8 @@ function PrintSelectionModal({
             <div className="space-y-2">
               {services.map(svc => {
                 const isSelected = selectedServices.has(svc.id);
-                const colorClass = TYPE_COLORS[svc.type] ?? 'bg-slate-100 text-slate-600';
+                const svcTypes = svc.types?.length ? svc.types : svc.type ? [svc.type] : ['Consulta'];
+                const colorClass = TYPE_COLORS[svcTypes[0]] ?? 'bg-slate-100 text-slate-600';
 
                 return (
                   <label
@@ -419,11 +430,13 @@ function PrintSelectionModal({
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colorClass}`}>
-                          {svc.type}
-                        </span>
+                        {svcTypes.map(t => (
+                          <span key={t} className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_COLORS[t] ?? 'bg-slate-100 text-slate-600'}`}>
+                            {t}
+                          </span>
+                        ))}
                         <span className="text-slate-500 text-xs">
-                          {new Date(svc.date).toLocaleDateString('es-PA', {
+                          {new Date(svc.date + 'T12:00:00').toLocaleDateString('es-PA', {
                             day: '2-digit', month: 'short', year: 'numeric',
                           })}
                         </span>
@@ -431,7 +444,7 @@ function PrintSelectionModal({
                       {svc.observations && (
                         <p className="text-slate-600 text-sm mt-1">{svc.observations}</p>
                       )}
-                      {svc.type === 'Vacunación' && svc.vaccines && svc.vaccines.length > 0 && (
+                      {svcTypes.includes('Vacunación') && svc.vaccines && svc.vaccines.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {svc.vaccines.map(v => (
                             <span key={v} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-100 text-teal-700 text-xs font-medium">
@@ -542,24 +555,29 @@ function PrintPreview({
               Registros Seleccionados ({services.length})
             </h2>
 
-            {services.map((svc, idx) => (
+            {services.map((svc, idx) => {
+              const svcTypes = svc.types?.length ? svc.types : svc.type ? [svc.type] : ['Consulta'];
+              return (
               <div
                 key={svc.id}
                 className="mb-4 pb-4 border-b border-slate-200 last:border-0"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: TYPE_COLORS_PRINT[svc.type] + '20',
-                        color: TYPE_COLORS_PRINT[svc.type],
-                      }}
-                    >
-                      {svc.type}
-                    </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {svcTypes.map(t => (
+                      <span
+                        key={t}
+                        className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: (TYPE_COLORS_PRINT[t] ?? '#64748b') + '20',
+                          color: TYPE_COLORS_PRINT[t] ?? '#64748b',
+                        }}
+                      >
+                        {t}
+                      </span>
+                    ))}
                     <span className="text-xs text-slate-500">
-                      {new Date(svc.date).toLocaleDateString('es-PA', {
+                      {new Date(svc.date + 'T12:00:00').toLocaleDateString('es-PA', {
                         day: '2-digit', month: 'long', year: 'numeric',
                       })}
                     </span>
@@ -569,7 +587,7 @@ function PrintPreview({
                   )}
                 </div>
 
-                {svc.type === 'Vacunación' && svc.vaccines && svc.vaccines.length > 0 && (
+                {svcTypes.includes('Vacunación') && svc.vaccines && svc.vaccines.length > 0 && (
                   <p className="text-slate-700 text-sm mb-1"><strong>Vacunas aplicadas:</strong> {svc.vaccines.join(', ')}</p>
                 )}
                 {svc.observations && (
@@ -585,7 +603,8 @@ function PrintPreview({
                   <p className="text-slate-600 text-sm">{svc.treatment}</p>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {/* Footer */}
             <div className="mt-6 pt-4 border-t border-slate-200 text-center text-xs text-slate-400">
