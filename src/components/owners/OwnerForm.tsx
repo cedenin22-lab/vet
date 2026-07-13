@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
 import type { Owner } from '../../types';
 
 interface Props {
   initial?: Owner;
+  existingOwners?: Owner[];
   onSave: (o: Owner) => void;
   onClose: () => void;
 }
@@ -12,7 +13,7 @@ function newId() {
   return crypto.randomUUID();
 }
 
-export default function OwnerForm({ initial, onSave, onClose }: Props) {
+export default function OwnerForm({ initial, existingOwners = [], onSave, onClose }: Props) {
   const [form, setForm] = useState<Owner>(
     initial ?? {
       id: newId(),
@@ -24,11 +25,29 @@ export default function OwnerForm({ initial, onSave, onClose }: Props) {
     }
   );
 
-  const set = (k: keyof Owner, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+  const [error, setError] = useState('');
+
+  const set = (k: keyof Owner, v: string) => {
+    setForm(prev => ({ ...prev, [k]: v }));
+    if (error) setError('');
+  };
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
+
+    const phone = form.phone.trim();
+    if (phone) {
+      const duplicate = existingOwners.find(
+        o => o.phone.trim() === phone && o.id !== form.id
+      );
+      if (duplicate) {
+        setError(`Este cliente ya está registrado: ${duplicate.name}`);
+        return;
+      }
+    }
+
+    setError('');
     onSave(form);
   }
 
@@ -43,9 +62,20 @@ export default function OwnerForm({ initial, onSave, onClose }: Props) {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <Field label="Nombre completo *" value={form.name} onChange={v => set('name', v)} required />
-          <Field label="Teléfono" value={form.phone} onChange={v => set('phone', v)} type="tel" />
+          <div>
+            <Field label="Teléfono / Documento" value={form.phone} onChange={v => set('phone', v)} type="tel" />
+            <p className="text-slate-400 text-xs mt-1">Sirve como identificador único para evitar duplicados.</p>
+          </div>
           <Field label="Correo electrónico" value={form.email} onChange={v => set('email', v)} type="email" />
           <Field label="Dirección" value={form.address} onChange={v => set('address', v)} />
+
+          {error && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200">
+              <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-2">
             <button
               type="button"

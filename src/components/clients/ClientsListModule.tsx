@@ -24,9 +24,9 @@ export default function ClientsModule() {
       o.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Sort by most recent
-  const sorted = [...filtered].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  // Sort alphabetically by name (A-Z)
+  const sorted = [...filtered].sort((a, b) =>
+    a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
   );
 
   function handleAddOwner(owner: Owner) {
@@ -151,6 +151,7 @@ export default function ClientsModule() {
 
       {formOpen && (
         <OwnerForm
+          existingOwners={owners}
           onSave={handleAddOwner}
           onClose={() => setFormOpen(false)}
         />

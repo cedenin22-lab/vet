@@ -21,6 +21,10 @@ export default function OwnersList({ onSelectOwner }: Props) {
       o.email.toLowerCase().includes(search.toLowerCase())
   );
 
+  const sorted = [...filtered].sort((a, b) =>
+    a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+  );
+
   function handleSave(o: Owner) {
     if (editing) {
       updateOwner(o);
@@ -67,7 +71,7 @@ export default function OwnersList({ onSelectOwner }: Props) {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map(owner => {
+          {sorted.map(owner => {
             const ownerPets = pets.filter(p => p.ownerId === owner.id);
             return (
               <div key={owner.id} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow group">
@@ -124,6 +128,7 @@ export default function OwnersList({ onSelectOwner }: Props) {
       {formOpen && (
         <OwnerForm
           initial={editing ?? undefined}
+          existingOwners={owners}
           onSave={handleSave}
           onClose={() => { setFormOpen(false); setEditing(null); }}
         />
