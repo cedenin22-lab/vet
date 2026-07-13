@@ -13,6 +13,9 @@ import {
   CheckSquare,
   Square,
   Check,
+  FileText,
+  Download,
+  Paperclip,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { localDateString } from '../../context/AppContext';
@@ -32,6 +35,7 @@ const TYPE_COLORS: Record<string, string> = {
   Grooming: 'bg-amber-100 text-amber-700',
   Tratamiento: 'bg-cyan-100 text-cyan-700',
   'Clínica': 'bg-indigo-100 text-indigo-700',
+  'Exámenes': 'bg-fuchsia-100 text-fuchsia-700',
   Otro: 'bg-slate-100 text-slate-600',
 };
 
@@ -43,6 +47,7 @@ const TYPE_COLORS_PRINT: Record<string, string> = {
   Grooming: '#f59e0b',
   Tratamiento: '#06b6d4',
   'Clínica': '#6366f1',
+  'Exámenes': '#d946ef',
   Otro: '#64748b',
 };
 
@@ -273,6 +278,19 @@ function ServiceCard({
               ))}
             </div>
           )}
+          {service.attachment && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <a
+                href={service.attachment.data}
+                download={service.attachment.name}
+                onClick={e => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium hover:bg-indigo-100 transition-colors"
+              >
+                <Paperclip size={12} />
+                {service.attachment.name}
+              </a>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-slate-800 font-semibold text-sm">${service.price.toFixed(2)}</span>
@@ -319,6 +337,18 @@ function ServiceCard({
           )}
           {service.treatment && (
             <Detail label="Tratamiento" value={service.treatment} />
+          )}
+          {service.attachment && (
+            <div className="pt-1">
+              <a
+                href={service.attachment.data}
+                download={service.attachment.name}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition-colors"
+              >
+                <Download size={14} />
+                Descargar: {service.attachment.name}
+              </a>
+            </div>
           )}
         </div>
       )}

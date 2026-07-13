@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Banknote,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { PharmacyItem } from '../../types';
@@ -157,66 +158,70 @@ export default function PharmacyModule() {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-100">
-                  <tr>
-                    <th className="text-left text-slate-500 font-medium px-4 py-3 text-xs uppercase tracking-wide">Producto</th>
-                    <th className="text-left text-slate-500 font-medium px-4 py-3 text-xs uppercase tracking-wide hidden sm:table-cell">Categoría</th>
-                    <th className="text-right text-slate-500 font-medium px-4 py-3 text-xs uppercase tracking-wide">Precio</th>
-                    <th className="text-right text-slate-500 font-medium px-4 py-3 text-xs uppercase tracking-wide">Stock</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredItems.map(item => {
-                    const lowStock = item.stock <= LOW_STOCK_THRESHOLD;
-                    const outOfStock = item.stock === 0;
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-4 py-3">
-                          <p className="text-slate-800 font-medium">{item.name}</p>
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[item.category]}`}>
-                            {item.category}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right text-slate-700 font-semibold">
-                          ${item.salePrice.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className={`font-bold ${outOfStock ? 'text-red-600' : lowStock ? 'text-amber-600' : 'text-slate-700'}`}>
-                            {item.stock}
-                          </span>
-                          {lowStock && !outOfStock && (
-                            <span className="ml-1.5 text-xs text-amber-500 hidden sm:inline">bajo</span>
-                          )}
-                          {outOfStock && (
-                            <span className="ml-1.5 text-xs text-red-500 hidden sm:inline">agotado</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => { setEditing(item); setItemFormOpen(true); }}
-                              className="p-1.5 rounded-md text-slate-400 hover:text-teal-600 hover:bg-teal-50"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteItem(item.id)}
-                              className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredItems.map(item => {
+                const lowStock = item.stock <= LOW_STOCK_THRESHOLD;
+                const outOfStock = item.stock === 0;
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-xl border border-slate-200 overflow-hidden group hover:shadow-md transition-shadow"
+                  >
+                    {/* Product image */}
+                    <div className="relative h-36 bg-slate-50">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon size={36} className="text-slate-200" />
+                        </div>
+                      )}
+                      <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[item.category]}`}>
+                        {item.category}
+                      </span>
+                      {outOfStock && (
+                        <span className="absolute top-2 right-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                          Agotado
+                        </span>
+                      )}
+                      {/* Hover actions */}
+                      <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => { setEditing(item); setItemFormOpen(true); }}
+                          className="p-1.5 rounded-md bg-white/90 text-slate-500 hover:text-teal-600 shadow-sm"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1.5 rounded-md bg-white/90 text-slate-500 hover:text-red-600 shadow-sm"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    {/* Product info */}
+                    <div className="p-3 space-y-1.5">
+                      <p className="text-slate-800 font-medium text-sm leading-tight truncate">{item.name}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-teal-700 font-bold text-base">${item.salePrice.toFixed(2)}</span>
+                        <span className={`text-sm font-semibold ${outOfStock ? 'text-red-600' : lowStock ? 'text-amber-600' : 'text-slate-600'}`}>
+                          Stock: {item.stock}
+                        </span>
+                      </div>
+                      {lowStock && !outOfStock && (
+                        <p className="text-xs text-amber-500 flex items-center gap-1">
+                          <AlertTriangle size={11} /> Stock bajo
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>

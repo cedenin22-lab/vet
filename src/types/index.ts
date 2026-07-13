@@ -8,6 +8,7 @@ export type ServiceType =
   | 'Grooming'
   | 'Tratamiento'
   | 'Clínica'
+  | 'Exámenes'
   | 'Otro';
 
 export type AppointmentStatus = 'Pendiente' | 'Completada' | 'Cancelada';
@@ -63,6 +64,7 @@ export interface ServiceRecord {
   paymentMethod: PaymentMethod;
   vet: string;
   createdAt: string;
+  attachment?: { name: string; data: string; type: string };
   /** @deprecated use types[] */
   type?: ServiceType;
 }
@@ -115,6 +117,7 @@ export interface PharmacyItem {
   salePrice: number;
   stock: number;
   category: 'Medicamento' | 'Accesorio' | 'Alimento' | 'Otro';
+  imageUrl?: string;
   createdAt: string;
 }
 

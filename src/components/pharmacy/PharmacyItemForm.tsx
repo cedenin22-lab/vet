@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import type { PharmacyItem } from '../../types';
-import { localDateString } from '../../context/AppContext';
 
 interface Props {
   initial?: PharmacyItem;
@@ -23,8 +22,33 @@ export default function PharmacyItemForm({ initial, onSave, onClose }: Props) {
     }
   );
 
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
   const set = <K extends keyof PharmacyItem>(k: K, v: PharmacyItem[K]) =>
     setForm(prev => ({ ...prev, [k]: v }));
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Solo se permiten archivos de imagen.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no puede superar los 5 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      set('imageUrl', reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeImage() {
+    set('imageUrl', undefined);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,8 +58,8 @@ export default function PharmacyItemForm({ initial, onSave, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <h2 className="text-slate-800 font-semibold">
             {initial ? 'Editar Producto' : 'Nuevo Producto'}
           </h2>
@@ -44,7 +68,45 @@ export default function PharmacyItemForm({ initial, onSave, onClose }: Props) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+          {/* Image upload */}
+          <div>
+            <label className="block text-slate-600 text-sm font-medium mb-1.5">Foto del Producto</label>
+            {form.imageUrl ? (
+              <div className="relative inline-block">
+                <img
+                  src={form.imageUrl}
+                  alt={form.name}
+                  className="w-full h-40 object-cover rounded-lg border border-slate-200"
+                />
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="w-full flex flex-col items-center gap-2 py-8 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-teal-400 hover:bg-teal-50/50 transition-all"
+              >
+                <ImageIcon size={28} />
+                <span className="text-sm font-medium">Subir foto del producto</span>
+                <span className="text-xs text-slate-400">PNG, JPG — máx. 5 MB</span>
+              </button>
+            )}
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+          </div>
+
           <div>
             <label className="block text-slate-600 text-sm font-medium mb-1.5">Nombre del Producto *</label>
             <input

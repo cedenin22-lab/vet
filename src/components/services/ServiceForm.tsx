@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Check, Upload, FileText, Download } from 'lucide-react';
 import type { ServiceRecord, ServiceType, PaymentMethod } from '../../types';
 import { VACCINES } from '../../types';
 import { useApp } from '../../context/AppContext';
@@ -21,6 +21,7 @@ const SERVICE_TYPES: ServiceType[] = [
   'Grooming',
   'Tratamiento',
   'Clínica',
+  'Exámenes',
   'Otro',
 ];
 
@@ -65,6 +66,8 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
 
   const isVaccination = form.types.includes('Vacunación');
   const isTreatment = form.types.length === 1 && form.types[0] === 'Tratamiento';
+  const needsAttachment = form.types.includes('Clínica') || form.types.includes('Exámenes');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function toggleType(type: ServiceType) {
     setForm(prev => {
@@ -74,6 +77,32 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
       const vaccines = types.includes('Vacunación') ? prev.vaccines : [];
       return { ...prev, types, vaccines };
     });
+  }
+
+  const ACCEPTED_EXTENSIONS = '.pdf,.doc,.docx';
+  const ACCEPTED_MIMES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ACCEPTED_MIMES.includes(file.type) && !/\.(pdf|doc|docx)$/i.test(file.name)) {
+      alert('Solo se permiten archivos PDF o Word (.doc, .docx)');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      alert('El archivo no puede superar los 10 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      set('attachment', { name: file.name, data: reader.result as string, type: file.type });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeAttachment() {
+    set('attachment', undefined);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function toggleVaccine(vaccine: string) {
@@ -251,6 +280,50 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
                 />
               </div>
             </>
+          )}
+
+          {/* File attachment for Clínica / Exámenes */}
+          {needsAttachment && (
+            <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
+              <label className="text-indigo-700 text-sm font-semibold mb-2 block">
+                Archivo Adjunto (Word o PDF)
+              </label>
+              {form.attachment ? (
+                <div className="flex items-center gap-3 bg-white rounded-lg p-3 border border-indigo-200">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <FileText size={18} className="text-indigo-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-slate-800 text-sm font-medium truncate">{form.attachment.name}</p>
+                    <p className="text-slate-400 text-xs">{(form.attachment.data.length / 1024).toFixed(0)} KB</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeAttachment}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex flex-col items-center gap-2 py-6 border-2 border-dashed border-indigo-200 rounded-lg text-indigo-500 hover:border-indigo-400 hover:bg-indigo-50/50 transition-all"
+                >
+                  <Upload size={24} />
+                  <span className="text-sm font-medium">Haz clic para subir un archivo</span>
+                  <span className="text-xs text-indigo-400">PDF o Word (.doc, .docx) — máx. 10 MB</span>
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_EXTENSIONS}
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
           )}
 
           {/* Price + Payment */}
