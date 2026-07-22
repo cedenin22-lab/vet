@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { X, Check, Upload, FileText, Download } from 'lucide-react';
-import type { ServiceRecord, ServiceType, PaymentMethod } from '../../types';
+import { X, Check, Upload, FileText, Download, Plus, Trash2 } from 'lucide-react';
+import type { ServiceRecord, ServiceType, PaymentMethod, PaymentSplit } from '../../types';
 import { VACCINES } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { localDateString } from '../../context/AppContext';
@@ -56,6 +56,7 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
           treatment: '',
           price: 0,
           paymentMethod: 'Efectivo',
+          payments: [],
           vet: 'Dr. Cedeño',
           createdAt: new Date().toISOString(),
         }
@@ -68,6 +69,45 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
   const isTreatment = form.types.length === 1 && form.types[0] === 'Tratamiento';
   const needsAttachment = form.types.includes('Clínica') || form.types.includes('Exámenes');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [splitMode, setSplitMode] = useState((initial?.payments?.length ?? 0) > 1);
+  const splitTotal = form.payments.reduce((a, p) => a + p.amount, 0);
+  const splitRemaining = Math.max(0, form.price - splitTotal);
+
+  function addPayment() {
+    const usedMethods = form.payments.map(p => p.method);
+    const available = PAYMENT_METHODS.find(m => !usedMethods.includes(m.value));
+    if (!available) return;
+    set('payments', [...form.payments, { method: available.value, amount: 0 }]);
+  }
+
+  function updatePayment(index: number, field: 'method' | 'amount', value: PaymentMethod | number) {
+    setForm(prev => {
+      const payments = prev.payments.map((p, i) =>
+        i === index ? { ...p, [field]: value } : p
+      );
+      return { ...prev, payments };
+    });
+  }
+
+  function removePayment(index: number) {
+    setForm(prev => ({
+      ...prev,
+      payments: prev.payments.filter((_, i) => i !== index),
+    }));
+  }
+
+  function toggleSplitMode() {
+    if (splitMode) {
+      // Switching back to single: set paymentMethod from first split or keep current
+      setSplitMode(false);
+      set('payments', []);
+    } else {
+      // Switching to split: initialize with current paymentMethod
+      setSplitMode(true);
+      set('payments', [{ method: form.paymentMethod, amount: form.price }]);
+    }
+  }
 
   function toggleType(type: ServiceType) {
     setForm(prev => {
@@ -118,6 +158,7 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
     e.preventDefault();
     if (form.price < 0) return;
     if (isVaccination && form.vaccines.length === 0) return;
+    if (splitMode && Math.abs(splitTotal - form.price) > 0.01) return;
     onSave(form);
   }
 
@@ -328,40 +369,138 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
 
           {/* Price + Payment */}
           <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-            <p className="text-slate-600 text-sm font-semibold">Información de Pago</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-slate-600 text-sm font-medium mb-1.5">Precio (USD) *</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={e => set('price', parseFloat(e.target.value) || 0)}
-                  required
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-600 text-sm font-medium mb-1.5">Método de Pago *</label>
-                <div className="flex gap-1.5">
-                  {PAYMENT_METHODS.map(({ value: m, color }) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => set('paymentMethod', m)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
-                        form.paymentMethod === m
-                          ? `${color} text-white`
-                          : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
+            <div className="flex items-center justify-between">
+              <p className="text-slate-600 text-sm font-semibold">Información de Pago</p>
+              <button
+                type="button"
+                onClick={toggleSplitMode}
+                className={`text-xs font-medium px-2.5 py-1 rounded-md transition-colors ${
+                  splitMode
+                    ? 'bg-teal-100 text-teal-700 hover:bg-teal-200'
+                    : 'text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {splitMode ? 'Pago simple' : 'Pago dividido'}
+              </button>
+            </div>
+
+            {!splitMode ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-600 text-sm font-medium mb-1.5">Precio (USD) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={e => set('price', parseFloat(e.target.value) || 0)}
+                    required
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 text-sm font-medium mb-1.5">Método de Pago *</label>
+                  <div className="flex gap-1.5">
+                    {PAYMENT_METHODS.map(({ value: m, color }) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => set('paymentMethod', m)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-all ${
+                          form.paymentMethod === m
+                            ? `${color} text-white`
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Total price */}
+                <div>
+                  <label className="block text-slate-600 text-sm font-medium mb-1.5">Precio Total (USD) *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={e => set('price', parseFloat(e.target.value) || 0)}
+                    required
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                {/* Split payment rows */}
+                {form.payments.map((payment, idx) => {
+                  const usedMethods = form.payments.map((p, i) => i !== idx ? p.method : null).filter(Boolean);
+                  return (
+                    <div key={idx} className="flex items-center gap-2">
+                      <select
+                        value={payment.method}
+                        onChange={e => updatePayment(idx, 'method', e.target.value as PaymentMethod)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      >
+                        {PAYMENT_METHODS.map(({ value: m }) => (
+                          <option key={m} value={m} disabled={usedMethods.includes(m)}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={payment.amount}
+                          onChange={e => updatePayment(idx, 'amount', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-full pl-7 pr-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        />
+                      </div>
+                      {form.payments.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removePayment(idx)}
+                          className="p-2 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Add second method button */}
+                {form.payments.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={addPayment}
+                    className="flex items-center gap-1.5 text-teal-600 text-sm font-medium hover:underline"
+                  >
+                    <Plus size={14} /> Añadir método de pago
+                  </button>
+                )}
+
+                {/* Split summary */}
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                  <span className="text-slate-500 text-sm">Suma de pagos:</span>
+                  <span className={`font-bold text-sm ${Math.abs(splitTotal - form.price) < 0.01 ? 'text-green-600' : 'text-red-500'}`}>
+                    ${splitTotal.toFixed(2)} / ${form.price.toFixed(2)}
+                  </span>
+                </div>
+                {splitRemaining > 0.01 && (
+                  <p className="text-xs text-amber-600">Faltan ${splitRemaining.toFixed(2)} por asignar.</p>
+                )}
+                {splitRemaining < -0.01 && (
+                  <p className="text-xs text-red-500">La suma excede el total por ${Math.abs(splitRemaining).toFixed(2)}.</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-1">
@@ -374,7 +513,7 @@ export default function ServiceForm({ petId, ownerId, initial, onSave, onClose }
             </button>
             <button
               type="submit"
-              disabled={isVaccination && form.vaccines.length === 0}
+              disabled={isVaccination && form.vaccines.length === 0 || (splitMode && Math.abs(splitTotal - form.price) > 0.01)}
               className="flex-1 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {initial ? 'Guardar cambios' : 'Registrar servicio'}

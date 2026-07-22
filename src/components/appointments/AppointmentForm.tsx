@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { X, Search, ChevronDown } from 'lucide-react';
 import type { Appointment, AppointmentStatus } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { localDateString } from '../../context/AppContext';
@@ -31,12 +31,53 @@ export default function AppointmentForm({ initial, defaultOwnerId, defaultPetId,
   const set = <K extends keyof Appointment>(k: K, v: Appointment[K]) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
-  const selectedOwnerPets = pets.filter(p => p.ownerId === form.ownerId);
+  // Searchable owner+pet selector state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  function handleOwnerChange(ownerId: string) {
+  const selectedOwner = owners.find(o => o.id === form.ownerId);
+  const selectedPet = pets.find(p => p.id === form.petId);
+
+  // Build combined search results: each entry is { ownerId, ownerName, petId, petName, petSpecies }
+  const searchResults = (() => {
+    const q = searchQuery.toLowerCase().trim();
+    const results: { ownerId: string; ownerName: string; petId: string; petName: string; petSpecies: string }[] = [];
+    for (const owner of owners) {
+      const ownerPets = pets.filter(p => p.ownerId === owner.id);
+      if (ownerPets.length === 0) {
+        if (!q || owner.name.toLowerCase().includes(q)) {
+          results.push({ ownerId: owner.id, ownerName: owner.name, petId: '', petName: '', petSpecies: '' });
+        }
+      } else {
+        for (const pet of ownerPets) {
+          const matches = !q ||
+            owner.name.toLowerCase().includes(q) ||
+            pet.name.toLowerCase().includes(q);
+          if (matches) {
+            results.push({ ownerId: owner.id, ownerName: owner.name, petId: pet.id, petName: pet.name, petSpecies: pet.species });
+          }
+        }
+      }
+    }
+    return results.slice(0, 50);
+  })();
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function selectResult(ownerId: string, petId: string) {
     set('ownerId', ownerId);
-    const ownerPets = pets.filter(p => p.ownerId === ownerId);
-    set('petId', ownerPets[0]?.id ?? '');
+    set('petId', petId);
+    setSearchQuery('');
+    setShowDropdown(false);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -44,6 +85,8 @@ export default function AppointmentForm({ initial, defaultOwnerId, defaultPetId,
     if (!form.ownerId || !form.petId || !form.date || !form.time) return;
     onSave(form);
   }
+
+  const selectedOwnerPets = pets.filter(p => p.ownerId === form.ownerId);
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
@@ -58,38 +101,84 @@ export default function AppointmentForm({ initial, defaultOwnerId, defaultPetId,
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Owner */}
-          <div>
-            <label className="block text-slate-600 text-sm font-medium mb-1.5">Cliente *</label>
-            <select
-              value={form.ownerId}
-              onChange={e => handleOwnerChange(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            >
-              <option value="">Seleccionar cliente</option>
-              {owners.map(o => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </select>
+          {/* Searchable client + pet selector */}
+          <div className="relative" ref={dropdownRef}>
+            <label className="block text-slate-600 text-sm font-medium mb-1.5">Buscar Cliente / Mascota *</label>
+            {selectedOwner && selectedPet ? (
+              <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-teal-300 bg-teal-50">
+                <div className="min-w-0">
+                  <p className="text-slate-800 text-sm font-medium truncate">{selectedOwner.name}</p>
+                  <p className="text-slate-500 text-xs truncate">{selectedPet.name} ({selectedPet.species})</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { set('ownerId', ''); set('petId', ''); setShowDropdown(true); }}
+                  className="text-slate-400 hover:text-red-500 flex-shrink-0 ml-2"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value); setShowDropdown(true); }}
+                  onFocus={() => setShowDropdown(true)}
+                  placeholder="Escribe el nombre del cliente o mascota..."
+                  className="w-full pl-9 pr-9 py-2.5 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            )}
+
+            {showDropdown && !selectedOwner && (
+              <div className="absolute z-10 mt-1 w-full bg-white rounded-lg border border-slate-200 shadow-lg max-h-64 overflow-y-auto">
+                {searchResults.length === 0 ? (
+                  <p className="px-4 py-3 text-slate-400 text-sm text-center">
+                    {owners.length === 0 ? 'No hay clientes registrados.' : 'Sin resultados.'}
+                  </p>
+                ) : (
+                  searchResults.map(r => (
+                    <button
+                      key={`${r.ownerId}-${r.petId}`}
+                      type="button"
+                      onClick={() => selectResult(r.ownerId, r.petId)}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-teal-50 transition-colors text-left border-b border-slate-50 last:border-0"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-500 text-xs font-bold">
+                        {r.ownerName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-slate-800 text-sm font-medium truncate">{r.ownerName}</p>
+                        {r.petName && (
+                          <p className="text-slate-400 text-xs truncate">{r.petName} ({r.petSpecies})</p>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Pet */}
-          <div>
-            <label className="block text-slate-600 text-sm font-medium mb-1.5">Mascota *</label>
-            <select
-              value={form.petId}
-              onChange={e => set('petId', e.target.value)}
-              required
-              disabled={!form.ownerId}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-slate-50 disabled:text-slate-400"
-            >
-              <option value="">Seleccionar mascota</option>
-              {selectedOwnerPets.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.species})</option>
-              ))}
-            </select>
-          </div>
+          {/* Pet selector (only if owner has multiple pets) */}
+          {selectedOwner && selectedOwnerPets.length > 1 && (
+            <div>
+              <label className="block text-slate-600 text-sm font-medium mb-1.5">Mascota *</label>
+              <select
+                value={form.petId}
+                onChange={e => set('petId', e.target.value)}
+                required
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                {selectedOwnerPets.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.species})</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Date and Time */}
           <div className="grid grid-cols-2 gap-4">
@@ -174,7 +263,8 @@ export default function AppointmentForm({ initial, defaultOwnerId, defaultPetId,
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors"
+              disabled={!form.ownerId || !form.petId}
+              className="flex-1 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {initial ? 'Guardar cambios' : 'Programar cita'}
             </button>

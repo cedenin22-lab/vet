@@ -1,5 +1,10 @@
 export type PaymentMethod = 'Efectivo' | 'Yappy' | 'Transferencia';
 
+export interface PaymentSplit {
+  method: PaymentMethod;
+  amount: number;
+}
+
 export type ServiceType =
   | 'Consulta'
   | 'Vacunación'
@@ -62,6 +67,7 @@ export interface ServiceRecord {
   treatment: string;
   price: number;
   paymentMethod: PaymentMethod;
+  payments: PaymentSplit[];
   vet: string;
   createdAt: string;
   attachment?: { name: string; data: string; type: string };

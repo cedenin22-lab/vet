@@ -48,9 +48,20 @@ export default function Dashboard() {
   const weekServices = getCurrentWeekServices();
 
   const totals = useMemo(() => {
-    const cash = weekServices.filter(s => s.paymentMethod === 'Efectivo').reduce((a, s) => a + s.price, 0);
-    const yappy = weekServices.filter(s => s.paymentMethod === 'Yappy').reduce((a, s) => a + s.price, 0);
-    const transfer = weekServices.filter(s => s.paymentMethod === 'Transferencia').reduce((a, s) => a + s.price, 0);
+    let cash = 0, yappy = 0, transfer = 0;
+    for (const s of weekServices) {
+      if (s.payments && s.payments.length > 0) {
+        for (const p of s.payments) {
+          if (p.method === 'Efectivo') cash += p.amount;
+          else if (p.method === 'Yappy') yappy += p.amount;
+          else if (p.method === 'Transferencia') transfer += p.amount;
+        }
+      } else {
+        if (s.paymentMethod === 'Efectivo') cash += s.price;
+        else if (s.paymentMethod === 'Yappy') yappy += s.price;
+        else if (s.paymentMethod === 'Transferencia') transfer += s.price;
+      }
+    }
     const total = cash + yappy + transfer;
     return { cash, yappy, transfer, total, count: weekServices.length };
   }, [weekServices]);

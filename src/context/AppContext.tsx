@@ -71,13 +71,13 @@ function save<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-/** Migrate legacy `type` field to `types[]` */
+/** Migrate legacy `type` field to `types[]` and ensure `payments` exists */
 function migrateServices(raw: ServiceRecord[]): ServiceRecord[] {
   return raw.map(s => {
-    if (!s.types || s.types.length === 0) {
-      return { ...s, types: s.type ? [s.type] : ['Consulta'] };
-    }
-    return s;
+    const types = (!s.types || s.types.length === 0)
+      ? (s.type ? [s.type] : ['Consulta'])
+      : s.types;
+    return { ...s, types, payments: s.payments ?? [] };
   });
 }
 
@@ -206,9 +206,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const getWeeklyTotals = useCallback(() => {
     const current = getCurrentWeekServices();
-    const cash = current.filter(s => s.paymentMethod === 'Efectivo').reduce((a, s) => a + s.price, 0);
-    const yappy = current.filter(s => s.paymentMethod === 'Yappy').reduce((a, s) => a + s.price, 0);
-    const transfer = current.filter(s => s.paymentMethod === 'Transferencia').reduce((a, s) => a + s.price, 0);
+    let cash = 0, yappy = 0, transfer = 0;
+    for (const s of current) {
+      if (s.payments && s.payments.length > 0) {
+        for (const p of s.payments) {
+          if (p.method === 'Efectivo') cash += p.amount;
+          else if (p.method === 'Yappy') yappy += p.amount;
+          else if (p.method === 'Transferencia') transfer += p.amount;
+        }
+      } else {
+        if (s.paymentMethod === 'Efectivo') cash += s.price;
+        else if (s.paymentMethod === 'Yappy') yappy += s.price;
+        else if (s.paymentMethod === 'Transferencia') transfer += s.price;
+      }
+    }
     return { cash, yappy, transfer, total: cash + yappy + transfer, count: current.length };
   }, [getCurrentWeekServices]);
 

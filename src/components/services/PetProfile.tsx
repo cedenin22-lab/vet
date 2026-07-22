@@ -295,7 +295,19 @@ function ServiceCard({
         <div className="flex items-center gap-3 flex-shrink-0">
           <span className="text-slate-800 font-semibold text-sm">${service.price.toFixed(2)}</span>
           <span className="print:hidden">
-            {service.paymentMethod === 'Efectivo'
+            {service.payments && service.payments.length > 1 ? (
+              <span className="flex items-center gap-1">
+                {service.payments.map((p, i) => (
+                  <span key={i} title={`${p.method}: ${p.amount.toFixed(2)}`}>
+                    {p.method === 'Efectivo'
+                      ? <Banknote size={15} className="text-green-500" />
+                      : p.method === 'Yappy'
+                        ? <Smartphone size={15} className="text-blue-500" />
+                        : <ArrowLeftRight size={15} className="text-violet-500" />}
+                  </span>
+                ))}
+              </span>
+            ) : service.paymentMethod === 'Efectivo'
               ? <Banknote size={15} className="text-green-500" />
               : service.paymentMethod === 'Yappy'
                 ? <Smartphone size={15} className="text-blue-500" />
@@ -337,6 +349,16 @@ function ServiceCard({
           )}
           {service.treatment && (
             <Detail label="Tratamiento" value={service.treatment} />
+          )}
+          {service.payments && service.payments.length > 1 ? (
+            <div className="pt-1">
+              <span className="text-slate-400 text-xs font-medium uppercase tracking-wide">Pagos divididos: </span>
+              <span className="text-slate-700 text-sm font-medium">
+                {service.payments.map((p, i) => `${p.method} ${p.amount.toFixed(2)}`).join(' + ')}
+              </span>
+            </div>
+          ) : (
+            <Detail label="Método de pago" value={service.paymentMethod} />
           )}
           {service.attachment && (
             <div className="pt-1">
