@@ -17,12 +17,15 @@ export default function ClientsModule() {
     return <ClientProfile ownerId={selectedOwnerId} onBack={() => setSelectedOwnerId(null)} />;
   }
 
-  const filtered = owners.filter(
-    o =>
-      o.name.toLowerCase().includes(search.toLowerCase()) ||
+  const q = search.toLowerCase();
+  const filtered = owners.filter(o => {
+    const ownerMatch =
+      o.name.toLowerCase().includes(q) ||
       o.phone.includes(search) ||
-      o.email.toLowerCase().includes(search.toLowerCase())
-  );
+      o.email.toLowerCase().includes(q);
+    const petMatch = pets.some(p => p.ownerId === o.id && p.name.toLowerCase().includes(q));
+    return ownerMatch || petMatch;
+  });
 
   // Sort alphabetically by name (A-Z)
   const sorted = [...filtered].sort((a, b) =>
@@ -44,7 +47,7 @@ export default function ClientsModule() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, teléfono, correo..."
+            placeholder="Buscar por cliente, mascota, teléfono, correo..."
             className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
