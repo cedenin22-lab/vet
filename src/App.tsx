@@ -7,6 +7,9 @@ import ServicesList from './components/services/ServicesList';
 import BillingModule from './components/billing/BillingModule';
 import AppointmentsModule from './components/appointments/AppointmentsModule';
 import PharmacyModule from './components/pharmacy/PharmacyModule';
+import ExpensesModule from './components/expenses/ExpensesModule';
+import DebtsModule from './components/debts/DebtsModule';
+import WeeklyRecordModule from './components/weekly/WeeklyRecordModule';
 
 function AppInner() {
   const [view, setView] = useState<ActiveView>('dashboard');
@@ -25,6 +28,12 @@ function AppInner() {
         return <BillingModule />;
       case 'pharmacy':
         return <PharmacyModule />;
+      case 'expenses':
+        return <ExpensesModule />;
+      case 'debts':
+        return <DebtsModule />;
+      case 'weekly':
+        return <WeeklyRecordModule />;
     }
   }
 

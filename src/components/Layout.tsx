@@ -9,6 +9,9 @@ import {
   X,
   Stethoscope,
   Pill,
+  ShoppingBag,
+  CreditCard,
+  CalendarDays,
 } from 'lucide-react';
 
 export type ActiveView =
@@ -17,7 +20,10 @@ export type ActiveView =
   | 'services'
   | 'billing'
   | 'appointments'
-  | 'pharmacy';
+  | 'pharmacy'
+  | 'expenses'
+  | 'debts'
+  | 'weekly';
 
 interface NavItem {
   id: ActiveView;
@@ -32,6 +38,9 @@ const navItems: NavItem[] = [
   { id: 'services', label: 'Historial Clínico', icon: <FileText size={20} /> },
   { id: 'billing', label: 'Facturación', icon: <Receipt size={20} /> },
   { id: 'pharmacy', label: 'Farmacia', icon: <Pill size={20} /> },
+  { id: 'weekly', label: 'Registro Semanal', icon: <CalendarDays size={20} /> },
+  { id: 'expenses', label: 'Gastos / Salidas', icon: <ShoppingBag size={20} /> },
+  { id: 'debts', label: 'Deudas', icon: <CreditCard size={20} /> },
 ];
 
 interface Props {

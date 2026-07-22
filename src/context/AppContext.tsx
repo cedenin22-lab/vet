@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { Owner, Pet, ServiceRecord, Invoice, WeeklySnapshot, Appointment, PharmacyItem, PharmacySale } from '../types';
+import type { Owner, Pet, ServiceRecord, Invoice, WeeklySnapshot, Appointment, PharmacyItem, PharmacySale, Expense, Debt, DebtPayment, ServiceType } from '../types';
+import { HELPER_BASE_WEEKLY, HELPER_COMMISSION_RATE, HELPER_BATH_CORTE_FIXED } from '../types';
 
 interface AppContextValue {
   owners: Owner[];
@@ -10,6 +11,8 @@ interface AppContextValue {
   appointments: Appointment[];
   pharmacyItems: PharmacyItem[];
   pharmacySales: PharmacySale[];
+  expenses: Expense[];
+  debts: Debt[];
 
   addOwner: (owner: Owner) => void;
   updateOwner: (owner: Owner) => void;
@@ -39,8 +42,20 @@ interface AppContextValue {
   addPharmacySale: (sale: PharmacySale) => void;
   deletePharmacySale: (id: string) => void;
 
+  addExpense: (e: Expense) => void;
+  updateExpense: (e: Expense) => void;
+  deleteExpense: (id: string) => void;
+
+  addDebt: (d: Debt) => void;
+  updateDebt: (d: Debt) => void;
+  deleteDebt: (id: string) => void;
+  addDebtPayment: (debtId: string, payment: DebtPayment) => void;
+  deleteDebtPayment: (debtId: string, paymentId: string) => void;
+
   getCurrentWeekServices: () => ServiceRecord[];
   getWeeklyTotals: () => { cash: number; yappy: number; transfer: number; total: number; count: number };
+  getServiceCommission: (s: ServiceRecord) => number;
+  getHelperWeeklyPay: () => { base: number; commissions: number; total: number; breakdown: { service: ServiceRecord; commission: number }[] };
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -108,6 +123,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pharmacySales, setPharmacySales] = useState<PharmacySale[]>(() =>
     load('vc_pharmacy_sales', [])
   );
+  const [expenses, setExpenses] = useState<Expense[]>(() => load('vc_expenses', []));
+  const [debts, setDebts] = useState<Debt[]>(() => load('vc_debts', []));
 
   useEffect(() => { save('vc_owners', owners); }, [owners]);
   useEffect(() => { save('vc_pets', pets); }, [pets]);
@@ -117,6 +134,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { save('vc_appointments', appointments); }, [appointments]);
   useEffect(() => { save('vc_pharmacy_items', pharmacyItems); }, [pharmacyItems]);
   useEffect(() => { save('vc_pharmacy_sales', pharmacySales); }, [pharmacySales]);
+  useEffect(() => { save('vc_expenses', expenses); }, [expenses]);
+  useEffect(() => { save('vc_debts', debts); }, [debts]);
 
   const addOwner = useCallback((o: Owner) => setOwners(prev => [...prev, o]), []);
   const updateOwner = useCallback((o: Owner) => setOwners(prev => prev.map(x => x.id === o.id ? o : x)), []);
@@ -196,6 +215,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deletePharmacySale = useCallback((id: string) =>
     setPharmacySales(prev => prev.filter(x => x.id !== id)), []);
 
+  const addExpense = useCallback((e: Expense) => setExpenses(prev => [...prev, e]), []);
+  const updateExpense = useCallback((e: Expense) => setExpenses(prev => prev.map(x => x.id === e.id ? e : x)), []);
+  const deleteExpense = useCallback((id: string) => setExpenses(prev => prev.filter(x => x.id !== id)), []);
+
+  const addDebt = useCallback((d: Debt) => setDebts(prev => [...prev, d]), []);
+  const updateDebt = useCallback((d: Debt) => setDebts(prev => prev.map(x => x.id === d.id ? d : x)), []);
+  const deleteDebt = useCallback((id: string) => setDebts(prev => prev.filter(x => x.id !== id)), []);
+  const addDebtPayment = useCallback((debtId: string, payment: DebtPayment) =>
+    setDebts(prev => prev.map(d => d.id === debtId ? { ...d, payments: [...d.payments, payment] } : d)), []);
+  const deleteDebtPayment = useCallback((debtId: string, paymentId: string) =>
+    setDebts(prev => prev.map(d => d.id === debtId ? { ...d, payments: d.payments.filter(p => p.id !== paymentId) } : d)), []);
+
   const getCurrentWeekServices = useCallback((): ServiceRecord[] => {
     const { start, end } = getWeekBounds(new Date());
     return services.filter(s => {
@@ -203,6 +234,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return d >= start && d <= end;
     });
   }, [services]);
+
+  const getServiceCommission = useCallback((s: ServiceRecord): number => {
+    const types = s.types?.length ? s.types : s.type ? [s.type as ServiceType] : ['Consulta'];
+    if (types.includes('Baño y Corte')) return HELPER_BATH_CORTE_FIXED;
+    return s.price * HELPER_COMMISSION_RATE;
+  }, []);
+
+  const getHelperWeeklyPay = useCallback(() => {
+    const weekServices = getCurrentWeekServices();
+    const breakdown = weekServices.map(s => ({ service: s, commission: getServiceCommission(s) }));
+    const commissions = breakdown.reduce((a, b) => a + b.commission, 0);
+    return { base: HELPER_BASE_WEEKLY, commissions, total: HELPER_BASE_WEEKLY + commissions, breakdown };
+  }, [getCurrentWeekServices, getServiceCommission]);
 
   const getWeeklyTotals = useCallback(() => {
     const current = getCurrentWeekServices();
@@ -225,7 +269,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const value: AppContextValue = {
     owners, pets, services, invoices, weeklySnapshots, appointments,
-    pharmacyItems, pharmacySales,
+    pharmacyItems, pharmacySales, expenses, debts,
     addOwner, updateOwner, deleteOwner,
     addPet, updatePet, deletePet,
     addService, updateService, deleteService,
@@ -234,7 +278,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getTodayAppointments, getUpcomingAppointments,
     addPharmacyItem, updatePharmacyItem, deletePharmacyItem,
     addPharmacySale, deletePharmacySale,
-    getCurrentWeekServices, getWeeklyTotals,
+    addExpense, updateExpense, deleteExpense,
+    addDebt, updateDebt, deleteDebt, addDebtPayment, deleteDebtPayment,
+    getCurrentWeekServices, getWeeklyTotals, getServiceCommission, getHelperWeeklyPay,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

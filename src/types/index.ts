@@ -10,7 +10,10 @@ export type ServiceType =
   | 'Vacunación'
   | 'Desparasitación'
   | 'Cirugía'
-  | 'Grooming'
+  | 'Baño y Corte'
+  | 'Baño Medicado'
+  | 'Baño Garrapaticida'
+  | 'Baño Normal'
   | 'Tratamiento'
   | 'Clínica'
   | 'Exámenes'
@@ -104,6 +107,36 @@ export interface WeeklySnapshot {
   totalRevenue: number;
   serviceCount: number;
 }
+
+export interface Expense {
+  id: string;
+  description: string;
+  cost: number;
+  date: string;
+  createdAt: string;
+}
+
+export interface DebtPayment {
+  id: string;
+  amount: number;
+  date: string;
+  createdAt: string;
+}
+
+export interface Debt {
+  id: string;
+  ownerId: string;
+  petId: string;
+  description: string;
+  totalAmount: number;
+  date: string;
+  payments: DebtPayment[];
+  createdAt: string;
+}
+
+export const HELPER_BASE_WEEKLY = 80;
+export const HELPER_COMMISSION_RATE = 0.20;
+export const HELPER_BATH_CORTE_FIXED = 5;
 
 export interface Appointment {
   id: string;
