@@ -172,3 +172,30 @@ export interface PharmacySale {
   notes: string;
   createdAt: string;
 }
+
+export interface LabTestResult {
+  name: string;
+  details: string;
+  result: string;
+}
+
+export interface LabResult {
+  id: string;
+  petId: string;
+  ownerId: string;
+  date: string;
+  tests: LabTestResult[];
+  observations: string;
+  createdAt: string;
+}
+
+export interface HealthCertificate {
+  id: string;
+  petId: string;
+  ownerId: string;
+  date: string;
+  passport: string;
+  address: string;
+  exportTo: string;
+  createdAt: string;
+}

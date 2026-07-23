@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Pencil, X, CreditCard, DollarSign, Calendar } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, CreditCard, DollarSign, Calendar, Search, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Debt, DebtPayment } from '../../types';
 
@@ -68,6 +68,20 @@ export default function DebtsModule() {
   }
 
   const ownerPets = pets.filter(p => p.ownerId === form.ownerId);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  const clientResults = (() => {
+    const q = clientSearch.toLowerCase().trim();
+    if (!q) return [];
+    return owners.filter(o => {
+      const ownerMatch = o.name.toLowerCase().includes(q);
+      const petMatch = pets.some(p => p.ownerId === o.id && p.name.toLowerCase().includes(q));
+      return ownerMatch || petMatch;
+    }).slice(0, 8);
+  })();
+
+  const selectedOwner = owners.find(o => o.id === form.ownerId);
 
   return (
     <div className="space-y-4">
@@ -248,15 +262,53 @@ export default function DebtsModule() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-slate-600 text-sm font-medium mb-1.5">Cliente *</label>
-                <select
-                  value={form.ownerId}
-                  onChange={e => setForm(prev => ({ ...prev, ownerId: e.target.value, petId: '' }))}
-                  required
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">Seleccionar cliente...</option>
-                  {owners.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={form.ownerId ? selectedOwner?.name ?? clientSearch : clientSearch}
+                    onChange={e => {
+                      setClientSearch(e.target.value);
+                      setForm(prev => ({ ...prev, ownerId: '', petId: '' }));
+                      setShowClientDropdown(true);
+                    }}
+                    onFocus={() => setShowClientDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                    placeholder="Buscar por cliente o mascota..."
+                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  {showClientDropdown && clientResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white rounded-lg border border-slate-200 shadow-lg max-h-56 overflow-y-auto">
+                      {clientResults.map(o => {
+                        const ownerPets = pets.filter(p => p.ownerId === o.id);
+                        return (
+                          <button
+                            key={o.id}
+                            type="button"
+                            onMouseDown={() => {
+                              setForm(prev => ({ ...prev, ownerId: o.id, petId: '' }));
+                              setClientSearch(o.name);
+                              setShowClientDropdown(false);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              {form.ownerId === o.id && <Check size={14} className="text-red-500 flex-shrink-0" />}
+                              <div className="min-w-0">
+                                <p className="text-slate-800 text-sm font-medium truncate">{o.name}</p>
+                                {ownerPets.length > 0 && (
+                                  <p className="text-slate-400 text-xs truncate">
+                                    {ownerPets.map(p => p.name).join(', ')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-slate-600 text-sm font-medium mb-1.5">Mascota *</label>

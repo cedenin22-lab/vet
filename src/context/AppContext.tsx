@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { Owner, Pet, ServiceRecord, Invoice, WeeklySnapshot, Appointment, PharmacyItem, PharmacySale, Expense, Debt, DebtPayment, ServiceType } from '../types';
+import type { Owner, Pet, ServiceRecord, Invoice, WeeklySnapshot, Appointment, PharmacyItem, PharmacySale, Expense, Debt, DebtPayment, ServiceType, LabResult, HealthCertificate } from '../types';
 import { HELPER_BASE_WEEKLY, HELPER_COMMISSION_RATE, HELPER_BATH_CORTE_FIXED } from '../types';
 
 interface AppContextValue {
@@ -13,6 +13,8 @@ interface AppContextValue {
   pharmacySales: PharmacySale[];
   expenses: Expense[];
   debts: Debt[];
+  labResults: LabResult[];
+  healthCertificates: HealthCertificate[];
 
   addOwner: (owner: Owner) => void;
   updateOwner: (owner: Owner) => void;
@@ -51,6 +53,12 @@ interface AppContextValue {
   deleteDebt: (id: string) => void;
   addDebtPayment: (debtId: string, payment: DebtPayment) => void;
   deleteDebtPayment: (debtId: string, paymentId: string) => void;
+
+  addLabResult: (r: LabResult) => void;
+  deleteLabResult: (id: string) => void;
+
+  addHealthCertificate: (c: HealthCertificate) => void;
+  deleteHealthCertificate: (id: string) => void;
 
   getCurrentWeekServices: () => ServiceRecord[];
   getWeeklyTotals: () => { cash: number; yappy: number; transfer: number; total: number; count: number };
@@ -125,6 +133,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
   const [expenses, setExpenses] = useState<Expense[]>(() => load('vc_expenses', []));
   const [debts, setDebts] = useState<Debt[]>(() => load('vc_debts', []));
+  const [labResults, setLabResults] = useState<LabResult[]>(() => load('vc_lab_results', []));
+  const [healthCertificates, setHealthCertificates] = useState<HealthCertificate[]>(() => load('vc_health_certs', []));
 
   useEffect(() => { save('vc_owners', owners); }, [owners]);
   useEffect(() => { save('vc_pets', pets); }, [pets]);
@@ -136,6 +146,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { save('vc_pharmacy_sales', pharmacySales); }, [pharmacySales]);
   useEffect(() => { save('vc_expenses', expenses); }, [expenses]);
   useEffect(() => { save('vc_debts', debts); }, [debts]);
+  useEffect(() => { save('vc_lab_results', labResults); }, [labResults]);
+  useEffect(() => { save('vc_health_certs', healthCertificates); }, [healthCertificates]);
 
   const addOwner = useCallback((o: Owner) => setOwners(prev => [...prev, o]), []);
   const updateOwner = useCallback((o: Owner) => setOwners(prev => prev.map(x => x.id === o.id ? o : x)), []);
@@ -143,6 +155,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOwners(prev => prev.filter(x => x.id !== id));
     setPets(prev => prev.filter(x => x.ownerId !== id));
     setAppointments(prev => prev.filter(x => x.ownerId !== id));
+    setLabResults(prev => prev.filter(x => x.ownerId !== id));
+    setHealthCertificates(prev => prev.filter(x => x.ownerId !== id));
   }, []);
 
   const addPet = useCallback((p: Pet) => setPets(prev => [...prev, p]), []);
@@ -151,6 +165,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPets(prev => prev.filter(x => x.id !== id));
     setServices(prev => prev.filter(x => x.petId !== id));
     setAppointments(prev => prev.filter(x => x.petId !== id));
+    setLabResults(prev => prev.filter(x => x.petId !== id));
+    setHealthCertificates(prev => prev.filter(x => x.petId !== id));
   }, []);
 
   const addService = useCallback((s: ServiceRecord) => setServices(prev => [...prev, s]), []);
@@ -227,6 +243,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const deleteDebtPayment = useCallback((debtId: string, paymentId: string) =>
     setDebts(prev => prev.map(d => d.id === debtId ? { ...d, payments: d.payments.filter(p => p.id !== paymentId) } : d)), []);
 
+  const addLabResult = useCallback((r: LabResult) => setLabResults(prev => [...prev, r]), []);
+  const deleteLabResult = useCallback((id: string) => setLabResults(prev => prev.filter(x => x.id !== id)), []);
+
+  const addHealthCertificate = useCallback((c: HealthCertificate) => setHealthCertificates(prev => [...prev, c]), []);
+  const deleteHealthCertificate = useCallback((id: string) => setHealthCertificates(prev => prev.filter(x => x.id !== id)), []);
+
   const getCurrentWeekServices = useCallback((): ServiceRecord[] => {
     const { start, end } = getWeekBounds(new Date());
     return services.filter(s => {
@@ -269,7 +291,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const value: AppContextValue = {
     owners, pets, services, invoices, weeklySnapshots, appointments,
-    pharmacyItems, pharmacySales, expenses, debts,
+    pharmacyItems, pharmacySales, expenses, debts, labResults, healthCertificates,
     addOwner, updateOwner, deleteOwner,
     addPet, updatePet, deletePet,
     addService, updateService, deleteService,
@@ -280,6 +302,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addPharmacySale, deletePharmacySale,
     addExpense, updateExpense, deleteExpense,
     addDebt, updateDebt, deleteDebt, addDebtPayment, deleteDebtPayment,
+    addLabResult, deleteLabResult,
+    addHealthCertificate, deleteHealthCertificate,
     getCurrentWeekServices, getWeeklyTotals, getServiceCommission, getHelperWeeklyPay,
   };
 
