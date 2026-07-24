@@ -1,5 +1,4 @@
 // Paw-print watermark as inline SVG → data URL
-// A single paw print repeated as a tiled background
 export const PAW_WATERMARK_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" opacity="0.07">
   <g fill="#38bdf8" transform="translate(20,18) scale(0.45)">
@@ -13,6 +12,58 @@ export const PAW_WATERMARK_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
 `)}`;
 
 export const SIGNATURE_IMG_PATH = '/assets/image_d714e5.png';
+
+// FIX 1: Fetch the image and convert it to a base64 data URL so html2canvas
+// never has to make a network request that could fail due to CORS or path issues.
+async function loadImageAsBase64(url: string): Promise<string> {
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// FIX 3: Wait for every <img> inside the container to finish loading before
+// handing the element off to html2canvas.
+function waitForImages(el: HTMLElement): Promise<void> {
+  const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img'));
+  if (imgs.length === 0) return Promise.resolve();
+  return Promise.all(
+    imgs.map(
+      img =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>(res => {
+              img.onload = () => res();
+              img.onerror = () => res(); // don't block PDF on a broken image
+            })
+    )
+  ).then(() => undefined);
+}
+
+// FIX 2: signatureBlock is now async and receives the already-resolved base64
+// string so the <img> src is always a data URL — never a path.
+function signatureBlock(signatureBase64: string | null): string {
+  if (signatureBase64) {
+    return `
+    <div style="margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+      <img src="${signatureBase64}" style="height:80px;max-width:200px;object-fit:contain;" />
+      <div style="font-size:10px;font-weight:700;color:#0f172a;">Dr. Ricardo Cedeño</div>
+      <div style="font-size:9px;color:#475569;">Médico Veterinario &nbsp;|&nbsp; Idoneidad # 454</div>
+      <div style="font-size:9px;color:#475569;">Consultorio Veterinario Dr. Cedeño</div>
+    </div>`;
+  }
+  return `
+    <div style="margin-top:24px;">
+      <div style="border-top:1px solid #0f172a;width:200px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;font-weight:700;color:#0f172a;">Dr. Ricardo Cedeño</div>
+      <div style="font-size:9px;color:#475569;">Médico Veterinario &nbsp;|&nbsp; Idoneidad # 454</div>
+      <div style="font-size:9px;color:#475569;">Consultorio Veterinario Dr. Cedeño</div>
+    </div>`;
+}
 
 const HEADER_LAB = `
   <div style="text-align:center;border-bottom:2px solid #0d9488;padding-bottom:10px;margin-bottom:12px;">
@@ -52,25 +103,6 @@ function resultBadge(result: string) {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:${bg};color:${color};border:1px solid ${border};font-size:9px;font-weight:700;">${result}</span>`;
 }
 
-function signatureBlock(includeSignature: boolean) {
-  if (includeSignature) {
-    return `
-    <div style="margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
-      <img src="${SIGNATURE_IMG_PATH}" style="height:80px;max-width:200px;object-fit:contain;" crossorigin="anonymous"/>
-      <div style="font-size:10px;font-weight:700;color:#0f172a;">Dr. Ricardo Cedeño</div>
-      <div style="font-size:9px;color:#475569;">Médico Veterinario &nbsp;|&nbsp; Idoneidad # 454</div>
-      <div style="font-size:9px;color:#475569;">Consultorio Veterinario Dr. Cedeño</div>
-    </div>`;
-  }
-  return `
-    <div style="margin-top:24px;">
-      <div style="border-top:1px solid #0f172a;width:200px;margin-bottom:4px;"></div>
-      <div style="font-size:10px;font-weight:700;color:#0f172a;">Dr. Ricardo Cedeño</div>
-      <div style="font-size:9px;color:#475569;">Médico Veterinario &nbsp;|&nbsp; Idoneidad # 454</div>
-      <div style="font-size:9px;color:#475569;">Consultorio Veterinario Dr. Cedeño</div>
-    </div>`;
-}
-
 export interface LabTestData {
   name: string;
   details: string;
@@ -87,6 +119,11 @@ export async function generateLabResultPDF(data: {
   includeSignature: boolean;
 }) {
   const html2pdf = (await import('html2pdf.js')).default;
+
+  // FIX 1: resolve signature to base64 BEFORE building the HTML string
+  const signatureBase64 = data.includeSignature
+    ? await loadImageAsBase64(SIGNATURE_IMG_PATH).catch(() => null)
+    : null;
 
   const filledTests = data.tests.filter(t => t.result.trim() !== '');
 
@@ -141,20 +178,27 @@ export async function generateLabResultPDF(data: {
     ${sectionTitle('Observaciones Clínicas')}
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:9.5px;color:#334155;min-height:50px;white-space:pre-wrap;">${data.observations || '—'}</div>
 
-    ${signatureBlock(data.includeSignature)}
+    ${signatureBlock(signatureBase64)}
   </div>`;
 
   const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
   container.innerHTML = html;
   document.body.appendChild(container);
+
+  // FIX 3: wait for all images (photo + signature) to fully load
+  const rootEl = container.firstElementChild as HTMLElement;
+  await waitForImages(rootEl);
 
   await html2pdf().set({
     margin: 0,
     filename: `Resultados_Laboratorio_${data.petName}_${data.date}.pdf`,
     image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
+    html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  }).from(container.firstElementChild as HTMLElement).save();
+  }).from(rootEl).save();
 
   document.body.removeChild(container);
 }
@@ -177,7 +221,11 @@ export async function generateHealthCertificatePDF(data: {
 }) {
   const html2pdf = (await import('html2pdf.js')).default;
 
-  // Parse date for expedition text
+  // FIX 1: resolve signature to base64 BEFORE building the HTML string
+  const signatureBase64 = data.includeSignature
+    ? await loadImageAsBase64(SIGNATURE_IMG_PATH).catch(() => null)
+    : null;
+
   const dateObj = data.date ? new Date(data.date + 'T12:00:00') : new Date();
   const day = dateObj.getDate();
   const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -234,20 +282,27 @@ export async function generateHealthCertificatePDF(data: {
       <p style="margin:0;">Dado en la Ciudad de Panamá, a los <strong>${day}</strong> días del mes de <strong>${month}</strong> del año <strong>${year}</strong>.</p>
     </div>
 
-    ${signatureBlock(data.includeSignature)}
+    ${signatureBlock(signatureBase64)}
   </div>`;
 
   const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
   container.innerHTML = html;
   document.body.appendChild(container);
+
+  // FIX 3: wait for the signature image to fully load before capturing
+  const rootEl = container.firstElementChild as HTMLElement;
+  await waitForImages(rootEl);
 
   await html2pdf().set({
     margin: 0,
     filename: `Certificado_Salud_${data.petName}_${data.date}.pdf`,
     image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
+    html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-  }).from(container.firstElementChild as HTMLElement).save();
+  }).from(rootEl).save();
 
   document.body.removeChild(container);
 }
