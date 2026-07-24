@@ -1,142 +1,165 @@
-import { jsPDF } from 'jspdf';
+// Paw-print watermark as inline SVG → data URL
+// A single paw print repeated as a tiled background
+export const PAW_WATERMARK_SVG = `data:image/svg+xml;utf8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80" opacity="0.07">
+  <g fill="#38bdf8" transform="translate(20,18) scale(0.45)">
+    <ellipse cx="10" cy="8" rx="5" ry="7"/>
+    <ellipse cx="30" cy="4" rx="5" ry="7"/>
+    <ellipse cx="50" cy="4" rx="5" ry="7"/>
+    <ellipse cx="70" cy="8" rx="5" ry="7"/>
+    <path d="M8,22 Q10,14 20,12 Q30,10 38,16 Q46,10 56,12 Q66,14 68,22 Q72,38 60,50 Q50,58 40,58 Q30,58 20,50 Q8,38 8,22Z"/>
+  </g>
+</svg>
+`)}`;
 
-const CLINIC_NAME = 'Consultorio Veterinario Dr. Cedeño';
-const DOCTOR_NAME = 'Dr. Ricardo Cedeño';
-const DOCTOR_TITLE = 'Médico Veterinario';
+export const SIGNATURE_IMG_PATH = '/assets/image_d714e5.png';
 
-const LEFT_MARGIN = 15;
-const RIGHT_MARGIN = 195;
-const PAGE_WIDTH = RIGHT_MARGIN - LEFT_MARGIN;
+const HEADER_LAB = `
+  <div style="text-align:center;border-bottom:2px solid #0d9488;padding-bottom:10px;margin-bottom:12px;">
+    <div style="font-size:17px;font-weight:800;color:#0f172a;letter-spacing:0.5px;text-transform:uppercase;">Consultorio Veterinario Dr. Cedeño</div>
+    <div style="font-size:9px;color:#475569;margin-top:3px;">R.U.C. 6-67-83 D.V.63</div>
+    <div style="font-size:9px;color:#475569;">La Locería, Calle 22A, Norte &nbsp;|&nbsp; Teléfono: 236-9453 &nbsp;|&nbsp; Celular: 6719-9283</div>
+    <div style="font-size:9px;color:#475569;">Horario: Lunes a Viernes: 8:00 a.m. - 7:00 p.m. &nbsp;|&nbsp; Sábado: 8:00 a.m. - 3:30 p.m.</div>
+    <div style="font-size:14px;font-weight:700;color:#0f766e;margin-top:8px;letter-spacing:0.5px;">REPORTE DE RESULTADOS DE LABORATORIO</div>
+  </div>`;
 
-function drawHeader(doc: jsPDF, subtitle: string) {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.text(CLINIC_NAME, 105, 18, { align: 'center' });
+const HEADER_CERT = `
+  <div style="text-align:center;border-bottom:2px solid #0d9488;padding-bottom:10px;margin-bottom:12px;">
+    <div style="font-size:17px;font-weight:800;color:#0f172a;letter-spacing:0.5px;text-transform:uppercase;">Consultorio Veterinario Dr. Cedeño</div>
+    <div style="font-size:9px;color:#475569;margin-top:3px;">Doctor Ricardo Cedeño &nbsp;|&nbsp; Idoneidad # 454</div>
+    <div style="font-size:9px;color:#475569;">Dir. La Locería, Calle 22A Norte, Casa 96 A &nbsp;|&nbsp; Tel. 236-9453 / 6719-9283</div>
+    <div style="font-size:14px;font-weight:700;color:#0f766e;margin-top:8px;letter-spacing:0.5px;">CERTIFICADO DE BUENA SALUD Y EXPORTACIÓN</div>
+  </div>`;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('R.U.C. 6-67-83 D.V.63', 105, 24, { align: 'center' });
-  doc.text('La Locería, Calle 22A, Norte | Teléfono: 236-9453 | Celular: 6719-9283', 105, 29, { align: 'center' });
-  doc.text('Horario: Lunes a Viernes: 8:00 a.m. - 7:00 p.m. | Sábado: 8:00 a.m. - 3:30 p.m.', 105, 34, { align: 'center' });
-
-  doc.setDrawColor(200, 200, 200);
-  doc.line(LEFT_MARGIN, 37, RIGHT_MARGIN, 37);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text(subtitle, 105, 45, { align: 'center' });
-
-  doc.setDrawColor(200, 200, 200);
-  doc.line(LEFT_MARGIN, 48, RIGHT_MARGIN, 48);
-
-  return 55;
+function sectionTitle(title: string) {
+  return `<div style="background:#e0f2fe;border-left:4px solid #0284c7;padding:5px 10px;font-size:10px;font-weight:700;color:#0c4a6e;margin:12px 0 8px;text-transform:uppercase;letter-spacing:0.5px;">${title}</div>`;
 }
 
-function drawFooter(doc: jsPDF, y: number) {
-  if (y > 250) {
-    doc.addPage();
-    y = 20;
+function dataRow(label: string, value: string) {
+  return `<div style="display:flex;gap:4px;margin-bottom:4px;font-size:10px;">
+    <span style="color:#64748b;min-width:130px;font-weight:600;">${label}:</span>
+    <span style="color:#0f172a;">${value || '—'}</span>
+  </div>`;
+}
+
+function resultBadge(result: string) {
+  if (!result) return '';
+  const isPos = result.toLowerCase().includes('positivo') || result.toLowerCase() === '+';
+  const isNeg = result.toLowerCase().includes('negativo') || result.toLowerCase() === '-';
+  const bg = isPos ? '#fef2f2' : isNeg ? '#f0fdf4' : '#f8fafc';
+  const color = isPos ? '#b91c1c' : isNeg ? '#15803d' : '#475569';
+  const border = isPos ? '#fca5a5' : isNeg ? '#86efac' : '#cbd5e1';
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:9999px;background:${bg};color:${color};border:1px solid ${border};font-size:9px;font-weight:700;">${result}</span>`;
+}
+
+function signatureBlock(includeSignature: boolean) {
+  if (includeSignature) {
+    return `
+    <div style="margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+      <img src="${SIGNATURE_IMG_PATH}" style="height:80px;max-width:200px;object-fit:contain;" crossorigin="anonymous"/>
+      <div style="font-size:10px;font-weight:700;color:#0f172a;">Dr. Ricardo Cedeño</div>
+      <div style="font-size:9px;color:#475569;">Médico Veterinario &nbsp;|&nbsp; Idoneidad # 454</div>
+      <div style="font-size:9px;color:#475569;">Consultorio Veterinario Dr. Cedeño</div>
+    </div>`;
   }
-  doc.setDrawColor(200, 200, 200);
-  doc.line(LEFT_MARGIN, y, RIGHT_MARGIN, y);
-  y += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text(DOCTOR_NAME, LEFT_MARGIN, y);
-  y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(DOCTOR_TITLE, LEFT_MARGIN, y);
-  y += 5;
-  doc.text(CLINIC_NAME, LEFT_MARGIN, y);
-  return y;
+  return `
+    <div style="margin-top:24px;">
+      <div style="border-top:1px solid #0f172a;width:200px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;font-weight:700;color:#0f172a;">Dr. Ricardo Cedeño</div>
+      <div style="font-size:9px;color:#475569;">Médico Veterinario &nbsp;|&nbsp; Idoneidad # 454</div>
+      <div style="font-size:9px;color:#475569;">Consultorio Veterinario Dr. Cedeño</div>
+    </div>`;
 }
 
-export interface LabTestResultData {
+export interface LabTestData {
   name: string;
   details: string;
   result: string;
 }
 
-export function generateLabResultPDF(data: {
+export async function generateLabResultPDF(data: {
   date: string;
   petName: string;
   ownerName: string;
-  tests: LabTestResultData[];
+  tests: LabTestData[];
   observations: string;
+  photoDataUrl: string | null;
+  includeSignature: boolean;
 }) {
-  const doc = new jsPDF();
-  let y = drawHeader(doc, 'REPORTE DE RESULTADOS DE LABORATORIO');
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  y += 4;
-  doc.text(`Fecha: ${data.date}`, LEFT_MARGIN, y);
-  y += 6;
-  doc.text(`Paciente: ${data.petName}`, LEFT_MARGIN, y);
-  y += 6;
-  doc.text(`Propietario: ${data.ownerName}`, LEFT_MARGIN, y);
-  y += 10;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('Pruebas Realizadas:', LEFT_MARGIN, y);
-  y += 7;
+  const html2pdf = (await import('html2pdf.js')).default;
 
   const filledTests = data.tests.filter(t => t.result.trim() !== '');
-  if (filledTests.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(LEFT_MARGIN, y - 4, PAGE_WIDTH, 7, 'F');
-    doc.text('Prueba / Parámetro', LEFT_MARGIN + 2, y);
-    doc.text('Detalles / Observaciones', 80, y);
-    doc.text('Resultado', 160, y);
-    y += 7;
 
-    doc.setFont('helvetica', 'normal');
-    filledTests.forEach((t, i) => {
-      if (y > 240) {
-        doc.addPage();
-        y = 20;
-      }
-      if (i % 2 === 0) {
-        doc.setFillColor(248, 248, 248);
-        doc.rect(LEFT_MARGIN, y - 4, PAGE_WIDTH, 7, 'F');
-      }
-      doc.text(t.name, LEFT_MARGIN + 2, y);
-      doc.text(t.details || '—', 80, y);
-      doc.text(t.result, 160, y);
-      y += 7;
-    });
-  } else {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('No se registraron pruebas con resultados.', LEFT_MARGIN, y);
-    y += 7;
-  }
+  const tableRows = filledTests.map((t, i) => `
+    <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'};">
+      <td style="padding:6px 8px;font-size:9px;color:#0f172a;border-bottom:1px solid #e2e8f0;font-weight:600;">${t.name}</td>
+      <td style="padding:6px 8px;font-size:9px;color:#334155;border-bottom:1px solid #e2e8f0;">${t.details || '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;">${resultBadge(t.result)}</td>
+    </tr>`).join('');
 
-  y += 8;
-  if (y > 230) {
-    doc.addPage();
-    y = 20;
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('OBSERVACIONES CLÍNICAS', LEFT_MARGIN, y);
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const obsLines = doc.splitTextToSize(data.observations || '—', PAGE_WIDTH);
-  doc.text(obsLines, LEFT_MARGIN, y);
-  y += obsLines.length * 5 + 10;
+  const photoHtml = data.photoDataUrl ? `
+    ${sectionTitle('Evidencia Fotográfica del Examen')}
+    <div style="text-align:center;margin:8px 0;">
+      <img src="${data.photoDataUrl}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #e2e8f0;object-fit:contain;" />
+    </div>` : '';
 
-  drawFooter(doc, y);
+  const html = `
+  <div style="
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    padding: 24px 28px;
+    color: #0f172a;
+    background-image: url('${PAW_WATERMARK_SVG}');
+    background-repeat: repeat;
+    background-size: 80px 80px;
+    min-height: 297mm;
+    box-sizing: border-box;
+  ">
+    ${HEADER_LAB}
 
-  doc.save(`Resultados_Laboratorio_${data.petName}_${data.date}.pdf`);
+    ${sectionTitle('Información del Paciente')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;">
+      ${dataRow('Fecha', data.date)}
+      ${dataRow('Paciente', data.petName)}
+      ${dataRow('Propietario', data.ownerName)}
+    </div>
+
+    ${sectionTitle('Pruebas Realizadas')}
+    ${filledTests.length > 0 ? `
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;">
+      <thead>
+        <tr style="background:#0f766e;">
+          <th style="padding:7px 8px;text-align:left;font-size:9px;color:#fff;font-weight:700;width:35%;">Prueba / Parámetro</th>
+          <th style="padding:7px 8px;text-align:left;font-size:9px;color:#fff;font-weight:700;width:45%;">Detalles / Observaciones</th>
+          <th style="padding:7px 8px;text-align:center;font-size:9px;color:#fff;font-weight:700;width:20%;">Resultado</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>` : `<p style="font-size:9px;color:#94a3b8;">No se registraron pruebas con resultados.</p>`}
+
+    ${photoHtml}
+
+    ${sectionTitle('Observaciones Clínicas')}
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:9.5px;color:#334155;min-height:50px;white-space:pre-wrap;">${data.observations || '—'}</div>
+
+    ${signatureBlock(data.includeSignature)}
+  </div>`;
+
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  await html2pdf().set({
+    margin: 0,
+    filename: `Resultados_Laboratorio_${data.petName}_${data.date}.pdf`,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  }).from(container.firstElementChild as HTMLElement).save();
+
+  document.body.removeChild(container);
 }
 
-export function generateHealthCertificatePDF(data: {
+export async function generateHealthCertificatePDF(data: {
   date: string;
   petName: string;
   breed: string;
@@ -150,130 +173,81 @@ export function generateHealthCertificatePDF(data: {
   passport: string;
   address: string;
   exportTo: string;
+  includeSignature: boolean;
 }) {
-  const doc = new jsPDF();
+  const html2pdf = (await import('html2pdf.js')).default;
 
-  // Custom header for health certificate
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
-  doc.text('CONSULTORIO VETERINARIO DR. CEDEÑO', 105, 18, { align: 'center' });
+  // Parse date for expedition text
+  const dateObj = data.date ? new Date(data.date + 'T12:00:00') : new Date();
+  const day = dateObj.getDate();
+  const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const month = monthNames[dateObj.getMonth()];
+  const year = dateObj.getFullYear();
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('Doctor Ricardo Cedeño | Idoneidad # 454', 105, 24, { align: 'center' });
-  doc.text('Dir. La Locería, Calle 22A Norte, Casa 96 A | Tel. 236-9453 / 6719-9283', 105, 29, { align: 'center' });
+  const html = `
+  <div style="
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    padding: 24px 28px;
+    color: #0f172a;
+    background-image: url('${PAW_WATERMARK_SVG}');
+    background-repeat: repeat;
+    background-size: 80px 80px;
+    min-height: 297mm;
+    box-sizing: border-box;
+  ">
+    ${HEADER_CERT}
 
-  doc.setDrawColor(200, 200, 200);
-  doc.line(LEFT_MARGIN, 33, RIGHT_MARGIN, 33);
+    ${sectionTitle('I. Datos del Paciente')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;">
+      ${dataRow('Nombre', data.petName)}
+      ${dataRow('Raza', data.breed)}
+      ${dataRow('Especie', data.species)}
+      ${dataRow('Peso', data.weight ? data.weight + ' kg' : '')}
+      ${dataRow('Color', data.color)}
+      ${dataRow('Sexo', data.gender)}
+      ${dataRow('Fecha de Nacimiento', data.birthDate)}
+    </div>
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('CERTIFICADO DE BUENA SALUD Y EXPORTACIÓN', 105, 41, { align: 'center' });
+    ${sectionTitle('II. Declaración Médica Veterinaria')}
+    <div style="font-size:9.5px;color:#334155;line-height:1.65;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;">
+      <p style="margin:0 0 8px;">El médico veterinario que suscribe este documento, certifica que el animal descrito anteriormente fue examinado físicamente y se encuentra libre de evidencia de enfermedades infectocontagiosas, incluyendo lesiones de piel, diarrea, emaciación y síntomas que involucren el sistema nervioso.</p>
+      <p style="margin:0 0 8px;">Certifico además que el paciente cumple con los siguientes requisitos sanitarios:</p>
+      <ul style="margin:0;padding-left:18px;">
+        <li style="margin-bottom:4px;">Cuenta con la vacuna <strong>Antirrábica</strong> vigente.</li>
+        <li style="margin-bottom:4px;">Se encuentra debidamente desparasitado (interna y externamente).</li>
+        <li>Está libre de miasis o presencia del Gusano Barrenador (<em>Cochliomyia hominivorax</em>).</li>
+      </ul>
+    </div>
 
-  doc.setDrawColor(200, 200, 200);
-  doc.line(LEFT_MARGIN, 44, RIGHT_MARGIN, 44);
+    ${sectionTitle('III. Datos del Propietario y Exportación')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;">
+      ${dataRow('Propietario', data.ownerName)}
+      ${dataRow('Pasaporte / Cédula', data.passport)}
+      ${dataRow('Teléfono', data.ownerPhone)}
+      ${dataRow('Dirección', data.address)}
+      ${dataRow('Exportación hacia', data.exportTo)}
+    </div>
 
-  let y = 52;
+    ${sectionTitle('IV. Expedición')}
+    <div style="font-size:9.5px;color:#334155;line-height:1.7;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px;">
+      <p style="margin:0 0 8px;">La presente certificación se expide a solicitud de la parte interesada.</p>
+      <p style="margin:0;">Dado en la Ciudad de Panamá, a los <strong>${day}</strong> días del mes de <strong>${month}</strong> del año <strong>${year}</strong>.</p>
+    </div>
 
-  // Section I
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('I. DATOS DEL PACIENTE', LEFT_MARGIN, y);
-  y += 7;
+    ${signatureBlock(data.includeSignature)}
+  </div>`;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const patientFields = [
-    `Nombre: ${data.petName}`,
-    `Raza: ${data.breed || '—'}`,
-    `Especie: ${data.species}`,
-    `Peso: ${data.weight || '—'} kg`,
-    `Color: ${data.color || '—'}`,
-    `Sexo: ${data.gender}`,
-    `Fecha Nacimiento: ${data.birthDate || '—'}`,
-  ];
-  patientFields.forEach((f, i) => {
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    doc.text(f, LEFT_MARGIN + col * 95, y + row * 6);
-  });
-  y += Math.ceil(patientFields.length / 2) * 6 + 6;
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  document.body.appendChild(container);
 
-  // Section II
-  if (y > 200) { doc.addPage(); y = 20; }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('II. DECLARACIÓN MÉDICA VETERINARIA', LEFT_MARGIN, y);
-  y += 7;
+  await html2pdf().set({
+    margin: 0,
+    filename: `Certificado_Salud_${data.petName}_${data.date}.pdf`,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+  }).from(container.firstElementChild as HTMLElement).save();
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const declaration = [
-    'El médico veterinario que suscribe este documento, certifica que el animal descrito',
-    'anteriormente fue examinado físicamente y se encuentra libre de evidencia de',
-    'enfermedades infectocontagiosas, incluyendo lesiones de piel, diarrea, emaciación y',
-    'síntomas que involucren el sistema nervioso.',
-    '',
-    'Certifico además que el paciente cumple con los siguientes requisitos sanitarios:',
-    '',
-    '• Cuenta con la vacuna Antirrábica vigente.',
-    '• Se encuentra debidamente desparasitado (interna y externamente).',
-    '• Está libre de miasis o presencia del Gusano Barrenador (Cochliomyia hominivorax).',
-  ];
-  declaration.forEach(line => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(line, LEFT_MARGIN, y);
-    y += 5;
-  });
-  y += 6;
-
-  // Section III
-  if (y > 240) { doc.addPage(); y = 20; }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('III. DATOS DEL PROPIETARIO Y EXPORTACIÓN', LEFT_MARGIN, y);
-  y += 7;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const ownerFields = [
-    `Propietario: ${data.ownerName}`,
-    `Pasaporte / Cédula: ${data.passport || '—'}`,
-    `Teléfono: ${data.ownerPhone || '—'}`,
-    `Dirección: ${data.address || '—'}`,
-    `Exportación hacia: ${data.exportTo || '—'}`,
-  ];
-  ownerFields.forEach(f => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(f, LEFT_MARGIN, y);
-    y += 6;
-  });
-  y += 6;
-
-  // Section IV
-  if (y > 230) { doc.addPage(); y = 20; }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('IV. EXPEDICIÓN', LEFT_MARGIN, y);
-  y += 7;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  const expedicion = [
-    'La presente certificación se expide a solicitud de la parte interesada.',
-    '',
-    `Dado en la Ciudad de Panamá, a los _____ días del mes de ____________ del año 2026.`,
-    '',
-    '',
-    '',
-    '_________________________________',
-    'Firma y Sello del Médico Veterinario',
-  ];
-  expedicion.forEach(line => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(line, LEFT_MARGIN, y);
-    y += 5;
-  });
-
-  doc.save(`Certificado_Salud_${data.petName}_${data.date}.pdf`);
+  document.body.removeChild(container);
 }
