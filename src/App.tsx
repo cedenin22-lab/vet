@@ -1,53 +1,82 @@
 import { useState } from 'react';
-import { AppProvider } from './context/AppContext';
-import Layout, { type ActiveView } from './components/Layout';
-import Dashboard from './components/Dashboard';
-import ClientsModule from './components/clients/ClientsListModule';
-import ServicesList from './components/services/ServicesList';
-import BillingModule from './components/billing/BillingModule';
-import AppointmentsModule from './components/appointments/AppointmentsModule';
-import PharmacyModule from './components/pharmacy/PharmacyModule';
-import ExpensesModule from './components/expenses/ExpensesModule';
-import DebtsModule from './components/debts/DebtsModule';
-import WeeklyRecordModule from './components/weekly/WeeklyRecordModule';
+import { Stethoscope, Users, TrendingDown, Wrench, Loader2 } from 'lucide-react';
+import { AppProvider, useApp } from './context/AppContext';
+import ClientsView from './components/clients/ClientsView';
+import DebtsView from './components/debts/DebtsView';
+import CommissionsView from './components/commissions/CommissionsView';
 
-function AppInner() {
-  const [view, setView] = useState<ActiveView>('dashboard');
+type Tab = 'clients' | 'debts' | 'commissions';
 
-  function renderView() {
-    switch (view) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'appointments':
-        return <AppointmentsModule />;
-      case 'clients':
-        return <ClientsModule />;
-      case 'services':
-        return <ServicesList />;
-      case 'billing':
-        return <BillingModule />;
-      case 'pharmacy':
-        return <PharmacyModule />;
-      case 'expenses':
-        return <ExpensesModule />;
-      case 'debts':
-        return <DebtsModule />;
-      case 'weekly':
-        return <WeeklyRecordModule />;
-    }
+function AppContent() {
+  const { loading } = useApp();
+  const [tab, setTab] = useState<Tab>('clients');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="animate-spin text-teal-500" size={32} />
+      </div>
+    );
   }
 
+  const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
+    { id: 'clients', label: 'Clientes y Pacientes', icon: Users },
+    { id: 'debts', label: 'Control de Deudas', icon: TrendingDown },
+    { id: 'commissions', label: 'Servicios y Comisiones', icon: Wrench },
+  ];
+
   return (
-    <Layout active={view} onNavigate={setView}>
-      {renderView()}
-    </Layout>
+    <div className="min-h-screen bg-slate-100">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-teal-600 flex items-center justify-center">
+              <Stethoscope size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-slate-800 font-bold text-sm leading-tight">Consultorio Veterinario</h1>
+              <p className="text-slate-400 text-xs leading-tight">Dr. Cedeno</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="max-w-5xl mx-auto px-4 flex gap-1">
+          {tabs.map(t => {
+            const Icon = t.icon;
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                  active
+                    ? 'border-teal-600 text-teal-700'
+                    : 'border-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <Icon size={16} /> {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="max-w-5xl mx-auto px-4 py-6">
+        {tab === 'clients' && <ClientsView />}
+        {tab === 'debts' && <DebtsView />}
+        {tab === 'commissions' && <CommissionsView />}
+      </main>
+    </div>
   );
 }
 
 export default function App() {
   return (
     <AppProvider>
-      <AppInner />
+      <AppContent />
     </AppProvider>
   );
 }

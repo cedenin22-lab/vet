@@ -10,9 +10,9 @@ interface Props {
 }
 
 export default function HealthCertificateForm({ petId, ownerId, onClose }: Props) {
-  const { pets, owners, addHealthCertificate } = useApp();
-  const pet = pets.find(p => p.id === petId);
-  const owner = owners.find(o => o.id === ownerId);
+  const { patients, clients, addHealthCertificate } = useApp();
+  const pet = patients.find(p => p.id === petId);
+  const owner = clients.find(o => o.id === ownerId);
 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [passport, setPassport] = useState('');
@@ -25,28 +25,26 @@ export default function HealthCertificateForm({ petId, ownerId, onClose }: Props
 
   async function handleDownload() {
     setSaving(true);
-    addHealthCertificate({
-      id: crypto.randomUUID(),
-      petId,
-      ownerId,
+    await addHealthCertificate({
+      patient_id: petId,
+      client_id: ownerId,
       date,
       passport,
       address,
-      exportTo,
-      createdAt: new Date().toISOString(),
+      export_to: exportTo,
     });
 
     await generateHealthCertificatePDF({
       date,
       petName: pet!.name,
-      breed: pet!.breed,
+      breed: pet!.breed || '',
       species: pet!.species,
       weight: pet!.weight || '',
       color: pet!.color || '',
-      gender: pet!.gender,
-      birthDate: pet!.birthDate || '',
+      gender: pet!.gender || '',
+      birthDate: pet!.birth_date || '',
       ownerName: owner!.name,
-      ownerPhone: owner!.phone,
+      ownerPhone: owner!.phone || '',
       passport,
       address,
       exportTo,
@@ -60,13 +58,12 @@ export default function HealthCertificateForm({ petId, ownerId, onClose }: Props
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl max-h-[90vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Award size={20} className="text-teal-600" />
             <div>
               <h2 className="text-slate-800 font-semibold">Certificado de Buena Salud</h2>
-              <p className="text-slate-400 text-xs">{pet.name} · {owner.name}</p>
+              <p className="text-slate-400 text-xs">{pet.name} {' '} - {' '} {owner.name}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
@@ -74,75 +71,51 @@ export default function HealthCertificateForm({ petId, ownerId, onClose }: Props
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Auto-filled preview */}
           <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
             <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide mb-2">Datos del Paciente (Autocompletados)</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
               <p><span className="text-slate-400">Nombre:</span> <span className="text-slate-700 font-medium">{pet.name}</span></p>
-              <p><span className="text-slate-400">Raza:</span> <span className="text-slate-700 font-medium">{pet.breed || '—'}</span></p>
+              <p><span className="text-slate-400">Raza:</span> <span className="text-slate-700 font-medium">{pet.breed || '---'}</span></p>
               <p><span className="text-slate-400">Especie:</span> <span className="text-slate-700 font-medium">{pet.species}</span></p>
-              <p><span className="text-slate-400">Peso:</span> <span className="text-slate-700 font-medium">{pet.weight ? `${pet.weight} kg` : '—'}</span></p>
-              <p><span className="text-slate-400">Color:</span> <span className="text-slate-700 font-medium">{pet.color || '—'}</span></p>
-              <p><span className="text-slate-400">Sexo:</span> <span className="text-slate-700 font-medium">{pet.gender}</span></p>
-              <p><span className="text-slate-400">Nacimiento:</span> <span className="text-slate-700 font-medium">{pet.birthDate || '—'}</span></p>
+              <p><span className="text-slate-400">Peso:</span> <span className="text-slate-700 font-medium">{pet.weight ? `${pet.weight} kg` : '---'}</span></p>
+              <p><span className="text-slate-400">Color:</span> <span className="text-slate-700 font-medium">{pet.color || '---'}</span></p>
+              <p><span className="text-slate-400">Sexo:</span> <span className="text-slate-700 font-medium">{pet.gender || '---'}</span></p>
+              <p><span className="text-slate-400">Nacimiento:</span> <span className="text-slate-700 font-medium">{pet.birth_date || '---'}</span></p>
             </div>
           </div>
 
           <div>
             <label className="block text-slate-600 text-sm font-medium mb-1.5">Fecha del Certificado</label>
-            <input
-              type="date"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
 
           <div>
             <label className="block text-slate-600 text-sm font-medium mb-1.5">Propietario</label>
-            <input
-              value={owner.name}
-              disabled
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-500 text-sm bg-slate-50"
-            />
+            <input value={owner.name} disabled className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-500 text-sm bg-slate-50" />
           </div>
 
           <div>
-            <label className="block text-slate-600 text-sm font-medium mb-1.5">Pasaporte / Cédula <span className="text-red-400">*</span></label>
-            <input
-              value={passport}
-              onChange={e => setPassport(e.target.value)}
-              placeholder="Número de pasaporte o cédula"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+            <label className="block text-slate-600 text-sm font-medium mb-1.5">Pasaporte / Cedula <span className="text-red-400">*</span></label>
+            <input value={passport} onChange={e => setPassport(e.target.value)} placeholder="Numero de pasaporte o cedula"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
 
           <div>
-            <label className="block text-slate-600 text-sm font-medium mb-1.5">Dirección <span className="text-red-400">*</span></label>
-            <input
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-              placeholder="Dirección del propietario"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+            <label className="block text-slate-600 text-sm font-medium mb-1.5">Direccion <span className="text-red-400">*</span></label>
+            <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Direccion del propietario"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
 
           <div>
-            <label className="block text-slate-600 text-sm font-medium mb-1.5">Exportación hacia <span className="text-red-400">*</span></label>
-            <input
-              value={exportTo}
-              onChange={e => setExportTo(e.target.value)}
-              placeholder="País o destino de exportación"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
+            <label className="block text-slate-600 text-sm font-medium mb-1.5">Exportacion hacia <span className="text-red-400">*</span></label>
+            <input value={exportTo} onChange={e => setExportTo(e.target.value)} placeholder="Pais o destino de exportacion"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 space-y-3">
-          {/* Signature toggle */}
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <div
               onClick={() => setIncludeSignature(v => !v)}
@@ -157,10 +130,7 @@ export default function HealthCertificateForm({ petId, ownerId, onClose }: Props
           </label>
 
           <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors"
-            >
+            <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50 transition-colors">
               Cancelar
             </button>
             <button
