@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Stethoscope, Users, TrendingDown, Wrench, Loader2 } from 'lucide-react';
+import { Stethoscope, Users, TrendingDown, Wrench, Loader as Loader2 } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
 import ClientsView from './components/clients/ClientsView';
 import DebtsView from './components/debts/DebtsView';
