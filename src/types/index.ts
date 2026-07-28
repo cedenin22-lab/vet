@@ -1,176 +1,68 @@
-export type PaymentMethod = 'Efectivo' | 'Yappy' | 'Transferencia';
-
-export interface PaymentSplit {
-  method: PaymentMethod;
-  amount: number;
-}
-
-export type ServiceType =
-  | 'Consulta'
-  | 'Vacunación'
-  | 'Desparasitación'
-  | 'Cirugía'
-  | 'Baño y Corte'
-  | 'Baño Medicado'
-  | 'Baño Garrapaticida'
-  | 'Baño Normal'
-  | 'Tratamiento'
-  | 'Clínica'
-  | 'Exámenes'
-  | 'Otro';
-
-export type AppointmentStatus = 'Pendiente' | 'Completada' | 'Cancelada';
-
-// Available vaccines - easy to extend by adding more options
-export const VACCINES: string[] = [
-  'Parvovirus',
-  'Parvovirus/Distemper',
-  'Rabia',
-  'Múltiple',
-  'Quíntuple',
-  'Séxtuple',
-  'Leptospira',
-  'Bordetella',
-  'Influenza Canina',
-];
-
-export interface Owner {
+export interface Client {
   id: string;
   name: string;
-  phone: string;
-  email: string;
-  address: string;
-  createdAt: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  id_document: string | null;
+  created_at: string;
 }
 
-export interface Pet {
+export interface Patient {
   id: string;
-  ownerId: string;
+  client_id: string;
   name: string;
   species: string;
-  breed: string;
-  gender: 'Macho' | 'Hembra';
-  color: string;
-  birthDate: string;
-  ageManual: string;
-  weight: string;
-  createdAt: string;
+  breed: string | null;
+  gender: string | null;
+  color: string | null;
+  weight: string | null;
+  birth_date: string | null;
+  created_at: string;
 }
 
-export interface ServiceRecord {
+export type CommissionType = 'percentage' | 'fixed';
+
+export interface Service {
   id: string;
-  petId: string;
-  ownerId: string;
-  date: string;
-  types: ServiceType[];
-  vaccines: string[];
-  description: string;
-  observations: string;
-  diagnosis: string;
-  treatment: string;
+  name: string;
   price: number;
-  paymentMethod: PaymentMethod;
-  payments: PaymentSplit[];
-  vet: string;
-  createdAt: string;
-  attachment?: { name: string; data: string; type: string };
-  /** @deprecated use types[] */
-  type?: ServiceType;
+  commission_type: CommissionType;
+  commission_value: number;
+  created_at: string;
 }
 
-export interface InvoiceItem {
+export interface Appointment {
   id: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
+  patient_id: string;
+  service_id: string;
+  helper_name: string;
   date: string;
-  ownerName: string;
-  petName: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  tax: number;
-  total: number;
-  notes: string;
-  createdAt: string;
-}
-
-export interface WeeklySnapshot {
-  weekStart: string;
-  weekEnd: string;
-  totalCash: number;
-  totalYappy: number;
-  totalRevenue: number;
-  serviceCount: number;
-}
-
-export interface Expense {
-  id: string;
-  description: string;
-  cost: number;
-  date: string;
-  createdAt: string;
-}
-
-export interface DebtPayment {
-  id: string;
-  amount: number;
-  date: string;
-  createdAt: string;
+  notes: string | null;
+  created_at: string;
+  service?: Service;
+  patient?: Patient;
 }
 
 export interface Debt {
   id: string;
-  ownerId: string;
-  petId: string;
-  description: string;
-  totalAmount: number;
+  client_id: string;
+  patient_id: string;
+  amount: number;
+  description: string | null;
   date: string;
-  payments: DebtPayment[];
-  createdAt: string;
+  created_at: string;
+  patient?: Patient;
+  payments?: Payment[];
 }
 
-export const HELPER_BASE_WEEKLY = 80;
-export const HELPER_COMMISSION_RATE = 0.20;
-export const HELPER_BATH_CORTE_FIXED = 5;
-
-export interface Appointment {
+export interface Payment {
   id: string;
-  ownerId: string;
-  petId: string;
+  debt_id: string;
+  amount: number;
   date: string;
-  time: string;
-  reason: string;
-  status: AppointmentStatus;
-  notes: string;
-  createdAt: string;
-}
-
-export interface PharmacyItem {
-  id: string;
-  name: string;
-  salePrice: number;
-  stock: number;
-  category: 'Medicamento' | 'Accesorio' | 'Alimento' | 'Otro';
-  imageUrl?: string;
-  createdAt: string;
-}
-
-export interface PharmacySale {
-  id: string;
-  itemId: string;
-  itemName: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  paymentMethod: PaymentMethod;
-  date: string;
-  notes: string;
-  createdAt: string;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface LabTestResult {
@@ -181,21 +73,26 @@ export interface LabTestResult {
 
 export interface LabResult {
   id: string;
-  petId: string;
-  ownerId: string;
+  patient_id: string;
+  client_id: string;
   date: string;
   tests: LabTestResult[];
-  observations: string;
-  createdAt: string;
+  observations: string | null;
+  photo_url: string | null;
+  created_at: string;
+  patient?: Patient;
+  client?: Client;
 }
 
 export interface HealthCertificate {
   id: string;
-  petId: string;
-  ownerId: string;
+  patient_id: string;
+  client_id: string;
   date: string;
-  passport: string;
-  address: string;
-  exportTo: string;
-  createdAt: string;
+  passport: string | null;
+  address: string | null;
+  export_to: string | null;
+  created_at: string;
+  patient?: Patient;
+  client?: Client;
 }
